@@ -1,0 +1,10 @@
+{
+  "description": "Streamline pizza sales with an intuitive POS system that manages orders, inventory, and user roles, enhancing efficiency for restaurants.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

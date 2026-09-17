@@ -1,0 +1,130 @@
+@import url('https://fonts.googleapis.com/css2?family=Cooper+Black&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&display=swap');
+@import 'tailwindcss';
+
+@theme inline {
+  --color-bg: #FFFFFF;
+  --color-surface: #F7F7F8;
+  --color-surface-2: #EFEFEF;
+  --color-card: #FFFFFF;
+  --color-border: #E4E4E7;
+  --color-border-strong: #D1D1D6;
+  --color-primary: #DC2626;
+  --color-primary-dark: #B91C1C;
+  --color-primary-light: #FEF2F2;
+  --color-primary-mid: #FCA5A5;
+  --color-accent: #FBBF24;
+  --color-accent-dark: #D97706;
+  --color-accent-light: #FFFBEB;
+  --color-success: #16A34A;
+  --color-success-light: #F0FDF4;
+  --color-warning: #D97706;
+  --color-warning-light: #FFFBEB;
+  --color-info: #2563EB;
+  --color-info-light: #EFF6FF;
+  --color-fg: #18181B;
+  --color-fg-2: #3F3F46;
+  --color-muted: #71717A;
+  --color-subtle: #A1A1AA;
+  --color-placeholder: #D4D4D8;
+  --font-display: 'Cooper Black', serif;
+  --font-ui: 'Inter', system-ui, sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 6px -1px rgba(0,0,0,0.07), 0 2px 4px -2px rgba(0,0,0,0.05);
+  --shadow-lg: 0 10px 15px -3px rgba(0,0,0,0.08), 0 4px 6px -4px rgba(0,0,0,0.05);
+  --shadow-xl: 0 20px 25px -5px rgba(0,0,0,0.08), 0 8px 10px -6px rgba(0,0,0,0.04);
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html, body, #root {
+  height: 100%;
+  width: 100%;
+  background: #FFFFFF;
+  color: #18181B;
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #D4D4D8; border-radius: 99px; }
+::-webkit-scrollbar-thumb:hover { background: #A1A1AA; }
+
+*:focus-visible { outline: 2px solid #DC2626; outline-offset: 2px; border-radius: 4px; }
+
+.font-display { font-family: 'Cooper Black', serif; }
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+
+/* Badge */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+}
+
+/* Transitions */
+.t { transition: all 0.14s ease; }
+
+/* Animations */
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes slide-in-right {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+@keyframes slide-in-left {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+@keyframes ping-red {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(220,38,38,0.35); }
+  50% { box-shadow: 0 0 0 6px rgba(220,38,38,0); }
+}
+
+.anim-fade-up { animation: fade-up 0.2s ease forwards; }
+.anim-fade { animation: fade-in 0.18s ease forwards; }
+.anim-scale { animation: scale-in 0.18s ease forwards; }
+.anim-slide-right { animation: slide-in-right 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
+.anim-slide-left { animation: slide-in-left 0.22s cubic-bezier(0.4,0,0.2,1) forwards; }
+.ping-red { animation: ping-red 2s ease-in-out infinite; }
+
+/* Overlay */
+.overlay {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.35);
+  display: flex; align-items: center; justify-content: center; z-index: 500;
+  backdrop-filter: blur(2px);
+}
+
+/* PIN dots */
+.pin-dot {
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2px solid #D4D4D8; transition: all 0.15s;
+}
+.pin-dot.filled { background: #DC2626; border-color: #DC2626; }
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
