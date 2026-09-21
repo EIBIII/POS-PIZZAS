@@ -1,4 +1,44 @@
-export type UserRole = 'super_admin' | 'admin' | 'gerente' | 'cajero' | 'mesero' | 'cocinero' | 'repartidor'
+export type UserRole = string
+
+export interface Role {
+  id: string
+  label: string
+  color: string
+  permissions: Record<string, boolean>
+}
+
+export const PERMISSION_MODULES: { key: string; label: string }[] = [
+  { key: 'ventas', label: 'Ventas / POS' },
+  { key: 'pedidos', label: 'Pedidos' },
+  { key: 'extras', label: 'Extras' },
+  { key: 'historial', label: 'Historial' },
+  { key: 'cola', label: 'Cola de pedidos' },
+  { key: 'dashboard', label: 'Dashboard' },
+  { key: 'usuarios', label: 'Usuarios' },
+  { key: 'productos', label: 'Productos' },
+  { key: 'inventario', label: 'Inventario' },
+  { key: 'reportes', label: 'Reportes' },
+  { key: 'configuracion', label: 'Configuración' },
+  { key: 'auditoria', label: 'Auditoría' },
+  { key: 'corte', label: 'Corte de caja' },
+]
+
+// Mapea cada vista (id usado en Sidebar/App) a su clave de permiso correspondiente
+export const VIEW_PERMISSION_KEY: Record<string, string> = {
+  main: 'ventas',
+  pedido: 'pedidos',
+  extras: 'extras',
+  historial: 'historial',
+  cola: 'cola',
+  dashboard: 'dashboard',
+  usuarios: 'usuarios',
+  productos: 'productos',
+  inventario: 'inventario',
+  reportes: 'reportes',
+  configuracion: 'configuracion',
+  auditoria: 'auditoria',
+  corte: 'corte',
+}
 
 export interface User {
   id: string
@@ -143,12 +183,4 @@ export interface InventoryMovement {
   timestamp: Date
 }
 
-export const ROLE_PERMISSIONS: Record<string, Record<string, boolean>> = {
-  super_admin: { ventas: true, pedidos: true, historial: true, cola: true, dashboard: true, usuarios: true, productos: true, inventario: true, reportes: true, configuracion: true, auditoria: true, corte: true },
-  admin: { ventas: true, pedidos: true, historial: true, cola: true, dashboard: true, usuarios: true, productos: true, inventario: true, reportes: true, configuracion: true, auditoria: true, corte: true },
-  gerente: { ventas: true, pedidos: true, historial: true, cola: true, dashboard: true, usuarios: false, productos: true, inventario: true, reportes: true, configuracion: false, auditoria: false, corte: true },
-  cajero: { ventas: true, pedidos: true, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: true },
-  mesero: { ventas: true, pedidos: true, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: false },
-  cocinero: { ventas: false, pedidos: false, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: false },
-  repartidor: { ventas: false, pedidos: false, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: false },
-}
+

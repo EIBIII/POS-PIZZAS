@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory } from './types'
-import { USERS, ORDERS, EXTRAS, PRODUCTS, INGREDIENTS, AUDIT_LOG, PROMOTIONS, INGREDIENT_CATEGORIES, generateOrderNumber } from './data'
+import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory, Role } from './types'
+import { USERS, ORDERS, EXTRAS, PRODUCTS, INGREDIENTS, AUDIT_LOG, PROMOTIONS, INGREDIENT_CATEGORIES, ROLES, generateOrderNumber } from './data'
 
 export type View =
   | 'login' | 'main' | 'pedido' | 'extras' | 'historial' | 'cola'
@@ -28,6 +28,9 @@ interface AppContextType {
 
   users: User[]
   setUsers: (u: User[]) => void
+  roles: Role[]
+  setRoles: (r: Role[]) => void
+  hasPermission: (permKey: string) => boolean
   orders: Order[]
   addOrder: (o: Order) => void
   updateOrder: (id: string, patch: Partial<Order>) => void
@@ -56,6 +59,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [ticketItems, setTicketItems] = useState<TicketItem[]>([])
   const [activePromo, setActivePromo] = useState<Promotion | null>(null)
   const [users, setUsers] = useState<User[]>(USERS)
+  const [roles, setRoles] = useState<Role[]>(ROLES)
   const [orders, setOrders] = useState<Order[]>(ORDERS)
   const [extras, setExtras] = useState<Extra[]>(EXTRAS)
   const [products, setProducts] = useState<Product[]>(PRODUCTS)
@@ -115,6 +119,12 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setOrders(prev => prev.map(o => o.id === id ? { ...o, ...patch, updatedAt: new Date() } : o))
   }
 
+  function hasPermission(permKey: string): boolean {
+    if (!currentUser) return false
+    const role = roles.find(r => r.id === currentUser.role)
+    return role?.permissions[permKey] ?? false
+  }
+
   function addAudit(entry: Omit<AuditEntry, 'id' | 'timestamp'>) {
     setAuditLog(prev => [{ ...entry, id: `a${Date.now()}`, timestamp: new Date() }, ...prev])
   }
@@ -125,7 +135,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       slices, setSlices,
       ticketItems, addTicketItem, removeTicketItem, updateItemQty, clearTicket,
       activePromo, setActivePromo,
-      users, setUsers, orders, addOrder, updateOrder,
+      users, setUsers, roles, setRoles, hasPermission, orders, addOrder, updateOrder,
       extras, setExtras, products, setProducts,
       ingredients, setIngredients, ingredientCategories, setIngredientCategories,
       auditLog, addAudit,

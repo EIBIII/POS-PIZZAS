@@ -1,8 +1,18 @@
 import type {
   User, Product, Extra, Ingredient, Order,
   AuditEntry, CashRegister, InventoryMovement,
-  Promotion, IngredientCategory
+  Promotion, IngredientCategory, Role
 } from './types'
+
+export const ROLES: Role[] = [
+  { id: 'super_admin', label: 'Super Admin', color: '#DC2626', permissions: { ventas: true, pedidos: true, extras: true, historial: true, cola: true, dashboard: true, usuarios: true, productos: true, inventario: true, reportes: true, configuracion: true, auditoria: true, corte: true } },
+  { id: 'admin', label: 'Admin', color: '#D97706', permissions: { ventas: true, pedidos: true, extras: true, historial: true, cola: true, dashboard: true, usuarios: true, productos: true, inventario: true, reportes: true, configuracion: true, auditoria: true, corte: true } },
+  { id: 'gerente', label: 'Gerente', color: '#2563EB', permissions: { ventas: true, pedidos: true, extras: true, historial: true, cola: true, dashboard: true, usuarios: false, productos: true, inventario: true, reportes: true, configuracion: false, auditoria: false, corte: true } },
+  { id: 'cajero', label: 'Cajero', color: '#16A34A', permissions: { ventas: true, pedidos: true, extras: true, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: true } },
+  { id: 'mesero', label: 'Mesero', color: '#7C3AED', permissions: { ventas: true, pedidos: true, extras: true, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: false } },
+  { id: 'cocinero', label: 'Cocinero', color: '#D97706', permissions: { ventas: false, pedidos: false, extras: false, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: false } },
+  { id: 'repartidor', label: 'Repartidor', color: '#0891B2', permissions: { ventas: false, pedidos: false, extras: false, historial: false, cola: true, dashboard: false, usuarios: false, productos: false, inventario: false, reportes: false, configuracion: false, auditoria: false, corte: false } },
+]
 
 export const INGREDIENT_CATEGORIES: IngredientCategory[] = [
   { id: 'cat1', name: 'Ingredientes', color: '#DC2626' },

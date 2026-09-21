@@ -1,12 +1,8 @@
 import Icon from './Icon'
 import { useApp, type View } from '../context'
+import { VIEW_PERMISSION_KEY } from '../types'
 
-const ROLE_LABEL: Record<string, string> = {
-  super_admin: 'Super Admin', admin: 'Admin', gerente: 'Gerente',
-  cajero: 'Cajero', mesero: 'Mesero', cocinero: 'Cocinero', repartidor: 'Repartidor',
-}
-
-interface NavItem { id: View; label: string; icon: string; roles?: string[]; section: string }
+interface NavItem { id: View; label: string; icon: string; section: string }
 
 const NAV: NavItem[] = [
   { id: 'main', label: 'Principal', icon: 'home', section: 'Caja' },
@@ -14,22 +10,25 @@ const NAV: NavItem[] = [
   { id: 'extras', label: 'Extras', icon: 'shoppingBag', section: 'Caja' },
   { id: 'historial', label: 'Historial', icon: 'history', section: 'Caja' },
   { id: 'cola', label: 'Cola de Pedidos', icon: 'chefHat', section: 'Caja' },
-  { id: 'dashboard', label: 'Dashboard', icon: 'barChart', section: 'Gestión', roles: ['super_admin', 'admin', 'gerente'] },
-  { id: 'usuarios', label: 'Usuarios', icon: 'users', section: 'Gestión', roles: ['super_admin', 'admin'] },
-  { id: 'productos', label: 'Productos', icon: 'pizza', section: 'Gestión', roles: ['super_admin', 'admin', 'gerente'] },
-  { id: 'inventario', label: 'Inventario', icon: 'package', section: 'Gestión', roles: ['super_admin', 'admin', 'gerente'] },
-  { id: 'reportes', label: 'Reportes', icon: 'trendingUp', section: 'Gestión', roles: ['super_admin', 'admin', 'gerente'] },
-  { id: 'configuracion', label: 'Configuración', icon: 'settings', section: 'Sistema', roles: ['super_admin', 'admin'] },
-  { id: 'auditoria', label: 'Auditoría', icon: 'search', section: 'Sistema', roles: ['super_admin', 'admin'] },
-  { id: 'corte', label: 'Corte de Caja', icon: 'cashRegister', section: 'Sistema', roles: ['super_admin', 'admin', 'gerente', 'cajero'] },
+  { id: 'dashboard', label: 'Dashboard', icon: 'barChart', section: 'Gestión' },
+  { id: 'usuarios', label: 'Usuarios', icon: 'users', section: 'Gestión' },
+  { id: 'productos', label: 'Productos', icon: 'pizza', section: 'Gestión' },
+  { id: 'inventario', label: 'Inventario', icon: 'package', section: 'Gestión' },
+  { id: 'reportes', label: 'Reportes', icon: 'trendingUp', section: 'Gestión' },
+  { id: 'configuracion', label: 'Configuración', icon: 'settings', section: 'Sistema' },
+  { id: 'auditoria', label: 'Auditoría', icon: 'search', section: 'Sistema' },
+  { id: 'corte', label: 'Corte de Caja', icon: 'cashRegister', section: 'Sistema' },
 ]
 
 export default function Sidebar() {
-  const { currentUser, view, setView, logout, sidebarOpen, setSidebarOpen } = useApp()
+  const { currentUser, roles, hasPermission, view, setView, logout, sidebarOpen, setSidebarOpen } = useApp()
   if (!currentUser) return null
 
   const role = currentUser.role
-  const visible = NAV.filter(item => !item.roles || item.roles.includes(role))
+  const roleLabel = roles.find(r => r.id === role)?.label ?? role
+  // Cada pestaña se filtra por el permiso real del rol (tabla editable en Usuarios > Roles y Permisos),
+  // no por una lista de roles fija por ítem — así ningún rol ve pestañas que no puede usar.
+  const visible = NAV.filter(item => hasPermission(VIEW_PERMISSION_KEY[item.id]))
   const sections = [...new Set(visible.map(i => i.section))]
 
   const initials = currentUser.name.split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
@@ -139,7 +138,7 @@ export default function Sidebar() {
               <div style={{ fontSize: 13, fontWeight: 600, color: '#18181B', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                 {currentUser.name.split(' ')[0]}
               </div>
-              <div style={{ fontSize: 10.5, color: '#A1A1AA' }}>{ROLE_LABEL[role]}</div>
+              <div style={{ fontSize: 10.5, color: '#A1A1AA' }}>{roleLabel}</div>
             </div>
           </div>
           <button
