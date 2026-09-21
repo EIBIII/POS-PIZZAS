@@ -3,10 +3,11 @@ import { useApp } from '../context'
 import Icon from '../components/Icon'
 
 export default function CorteCaja() {
-  const { orders, currentUser } = useApp()
+  const { orders, currentUser, settings } = useApp()
   const [actualAmount, setActualAmount] = useState<number | ''>('')
   const [cut, setCut] = useState(false)
-  const [cutData, setCutData] = useState<{ expected: number; actual: number; diff: number } | null>(null)
+  const [cutData, setCutData] = useState<{ expected: number; actual: number; diff: number; initialFloat: number } | null>(null)
+  const [initialFloat, setInitialFloat] = useState<number>(settings.initialFloat)
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayOrders = orders.filter(o => o.createdAt >= today && o.status === 'entregado')
@@ -16,12 +17,11 @@ export default function CorteCaja() {
   const cardTotal = cardOrders.reduce((s, o) => s + o.total, 0)
   const totalRevenue = cashTotal + cardTotal
   const cancelledCount = orders.filter(o => o.createdAt >= today && o.status === 'cancelado').length
-  const initialFloat = 500
 
   function doCut() {
     const actual = Number(actualAmount) || 0
     const expected = cashTotal + initialFloat
-    setCutData({ expected, actual, diff: actual - expected })
+    setCutData({ expected, actual, diff: actual - expected, initialFloat })
     setCut(true)
   }
 
@@ -45,7 +45,7 @@ export default function CorteCaja() {
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10, marginBottom: 24 }}>
             {[
-              ['Fondo inicial', fmtMoney(initialFloat), '#71717A'],
+              ['Fondo inicial', fmtMoney(cutData.initialFloat), '#71717A'],
               ['Ventas efectivo', fmtMoney(cashTotal), '#18181B'],
               ['Ventas tarjeta', fmtMoney(cardTotal), '#18181B'],
               ['Total esperado', fmtMoney(cutData.expected), '#18181B'],
@@ -130,8 +130,18 @@ export default function CorteCaja() {
           <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 16, color: '#18181B', marginBottom: 20 }}>Realizar corte</div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#F7F7F8', borderRadius: 9 }}>
+              <span style={{ fontSize: 13, color: '#71717A' }}>Fondo inicial (ajustable hoy)</span>
+              <input
+                type="number"
+                value={initialFloat}
+                onChange={e => setInitialFloat(Number(e.target.value) || 0)}
+                style={{ width: 100, padding: '4px 8px', textAlign: 'right', borderRadius: 6, border: '1.5px solid #E4E4E7', fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700, color: '#18181B', outline: 'none' }}
+                onFocus={e => (e.currentTarget.style.borderColor = '#DC2626')}
+                onBlur={e => (e.currentTarget.style.borderColor = '#E4E4E7')}
+              />
+            </div>
             {[
-              { label: 'Fondo inicial', value: `$${initialFloat.toLocaleString()}` },
               { label: 'Ventas en efectivo', value: `$${cashTotal.toLocaleString()}` },
               { label: 'Total esperado', value: `$${(cashTotal + initialFloat).toLocaleString()}` },
             ].map(({ label, value }) => (

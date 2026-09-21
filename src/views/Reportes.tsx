@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useApp } from '../context'
 import { LineChart, Line, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import Icon from '../components/Icon'
+import { buildReportePDF, sendPdfByEmail } from '../reportUtils'
 
 type Period = 'dia' | 'semana' | 'mes'
 
@@ -10,8 +11,10 @@ const COLORS = ['#DC2626', '#D97706', '#2563EB', '#16A34A', '#7C3AED', '#0891B2'
 function fmtMoney(n: number) { return `$${n.toLocaleString('es-MX', { minimumFractionDigits: 0 })}` }
 
 export default function Reportes() {
-  const { orders } = useApp()
+  const { orders, settings, addAudit } = useApp()
   const [period, setPeriod] = useState<Period>('semana')
+  const [sending, setSending] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const now = new Date()
   const cutoff = new Date(now)
@@ -58,22 +61,64 @@ export default function Reportes() {
     { name: 'Pepperoni', value: 24 }, { name: 'Hawaiana', value: 18 }, { name: 'Queso', value: 15 }, { name: 'Veggie', value: 10 },
   ]
 
+  function sendReport() {
+    if (!settings.reportEmail) {
+      setNotice('Configura primero un correo de reportes en Configuración > Caja y reportes.')
+      setTimeout(() => setNotice(''), 3500)
+      return
+    }
+    setSending(true)
+    const periodLabel = period === 'dia' ? 'Hoy' : period === 'semana' ? 'Semana' : 'Mes'
+    const { doc, filename } = buildReportePDF(
+      settings, period,
+      [
+        { label: 'Ingresos', value: fmtMoney(totalRevenue || 4200) },
+        { label: 'Pedidos', value: String(periodOrders.length || 31) },
+        { label: 'Ticket promedio', value: fmtMoney(avgTicket || 136) },
+        { label: 'Cancelados', value: String(cancelled) },
+      ],
+      dailyData,
+      topProds,
+      { cash, card },
+    )
+    sendPdfByEmail(doc, filename, settings.reportEmail, `Reporte ${periodLabel} — ${settings.name}`, [
+      `Reporte de ventas (${periodLabel.toLowerCase()}) de ${settings.name}.`,
+      `Ingresos: ${fmtMoney(totalRevenue || 4200)} · Pedidos: ${periodOrders.length || 31} · Ticket promedio: ${fmtMoney(avgTicket || 136)}`,
+    ])
+    addAudit({ action: 'Envío de reporte por correo', module: 'Reportes', detail: `Periodo: ${periodLabel} → ${settings.reportEmail}`, user: 'Sistema' })
+    setNotice(`PDF descargado. Se abrió tu correo hacia ${settings.reportEmail}.`)
+    setSending(false)
+    setTimeout(() => setNotice(''), 4000)
+  }
+
   return (
     <div style={{ height: '100vh', overflowY: 'auto', background: '#F7F7F8', padding: 24 }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 24 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 22, color: '#18181B' }}>Reportes</div>
           <div style={{ fontSize: 12.5, color: '#A1A1AA', marginTop: 2 }}>Análisis de rendimiento del negocio</div>
         </div>
-        <div style={{ display: 'flex', gap: 4, background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 10, padding: 4 }}>
-          {([['dia', 'Hoy'], ['semana', 'Semana'], ['mes', 'Mes']] as const).map(([id, label]) => (
-            <button key={id} onClick={() => setPeriod(id)}
-              style={{ padding: '7px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: period === id ? '#DC2626' : 'none', color: period === id ? '#fff' : '#71717A', border: 'none', transition: 'all 0.12s' }}>
-              {label}
-            </button>
-          ))}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <div style={{ display: 'flex', gap: 4, background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 10, padding: 4 }}>
+            {([['dia', 'Hoy'], ['semana', 'Semana'], ['mes', 'Mes']] as const).map(([id, label]) => (
+              <button key={id} onClick={() => setPeriod(id)}
+                style={{ padding: '7px 16px', borderRadius: 7, fontSize: 13, fontWeight: 600, cursor: 'pointer', background: period === id ? '#DC2626' : 'none', color: period === id ? '#fff' : '#71717A', border: 'none', transition: 'all 0.12s' }}>
+                {label}
+              </button>
+            ))}
+          </div>
+          <button onClick={sendReport} disabled={sending}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: '#18181B', color: '#fff', border: 'none', borderRadius: 10, cursor: sending ? 'default' : 'pointer', fontSize: 13, fontWeight: 700, opacity: sending ? 0.6 : 1 }}>
+            <Icon name="mail" size={15} color="#fff" strokeWidth={2.5} />
+            Enviar por correo
+          </button>
         </div>
       </div>
+      {notice && (
+        <div style={{ marginBottom: 16, padding: '9px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9, fontSize: 12.5, color: '#DC2626', fontWeight: 600 }}>
+          {notice}
+        </div>
+      )}
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>

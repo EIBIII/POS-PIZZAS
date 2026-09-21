@@ -1,11 +1,15 @@
 import { AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
+import { useState } from 'react'
 import { useApp } from '../context'
 import Icon from '../components/Icon'
+import { buildDashboardPDF, sendPdfByEmail } from '../reportUtils'
 
 const REDS = ['#DC2626', '#EF4444', '#F87171', '#FCA5A5', '#FEE2E2']
 
 export default function Dashboard() {
-  const { orders, ingredients } = useApp()
+  const { orders, ingredients, settings, addAudit } = useApp()
+  const [sending, setSending] = useState(false)
+  const [notice, setNotice] = useState('')
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayOrders = orders.filter(o => o.createdAt >= today && o.status !== 'cancelado')
@@ -43,12 +47,56 @@ export default function Dashboard() {
     { name: 'Tarjeta', value: cardSales, color: '#2563EB' },
   ].filter(d => d.value > 0)
 
+  // Historial completo del día (todos los pedidos de hoy, incluyendo cancelados)
+  const todayHistory = orders.filter(o => o.createdAt >= today)
+
+  function sendDashboardReport() {
+    if (!settings.reportEmail) {
+      setNotice('Configura primero un correo de reportes en Configuración > Caja y reportes.')
+      setTimeout(() => setNotice(''), 3500)
+      return
+    }
+    setSending(true)
+    const { doc, filename } = buildDashboardPDF(
+      settings,
+      [
+        { label: 'Ventas hoy', value: `$${todayRevenue.toLocaleString()}` },
+        { label: 'Efectivo', value: `$${cashSales.toLocaleString()}` },
+        { label: 'Tarjeta', value: `$${cardSales.toLocaleString()}` },
+        { label: 'En cocina', value: String(activeOrders) },
+      ],
+      todayHistory,
+    )
+    sendPdfByEmail(doc, filename, settings.reportEmail, `Dashboard del día — ${settings.name}`, [
+      `Resumen del día de ${settings.name} (incluye historial de pedidos de hoy).`,
+      `Ventas hoy: $${todayRevenue.toLocaleString()} · Pedidos: ${todayOrders.length} · En cocina: ${activeOrders}`,
+    ])
+    addAudit({ action: 'Envío de dashboard por correo', module: 'Dashboard', detail: `Historial del día → ${settings.reportEmail}`, user: 'Sistema' })
+    setNotice(`PDF descargado. Se abrió tu correo hacia ${settings.reportEmail}.`)
+    setSending(false)
+    setTimeout(() => setNotice(''), 4000)
+  }
+
   return (
     <div style={{ height: '100vh', overflowY: 'auto', background: '#F7F7F8', padding: 24 }}>
-      <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 22, color: '#18181B', marginBottom: 4 }}>Dashboard</div>
-      <div style={{ fontSize: 12.5, color: '#A1A1AA', marginBottom: 22 }}>
-        {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, flexWrap: 'wrap', gap: 12 }}>
+        <div>
+          <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 22, color: '#18181B' }}>Dashboard</div>
+          <div style={{ fontSize: 12.5, color: '#A1A1AA', marginTop: 2 }}>
+            {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+          </div>
+        </div>
+        <button onClick={sendDashboardReport} disabled={sending}
+          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '9px 16px', background: '#18181B', color: '#fff', border: 'none', borderRadius: 10, cursor: sending ? 'default' : 'pointer', fontSize: 13, fontWeight: 700, opacity: sending ? 0.6 : 1 }}>
+          <Icon name="mail" size={15} color="#fff" strokeWidth={2.5} />
+          Enviar por correo (PDF)
+        </button>
       </div>
+      {notice && (
+        <div style={{ marginBottom: 16, padding: '9px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9, fontSize: 12.5, color: '#DC2626', fontWeight: 600 }}>
+          {notice}
+        </div>
+      )}
 
       {/* KPIs */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 14, marginBottom: 20 }}>

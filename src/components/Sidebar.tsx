@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import Icon from './Icon'
 import { useApp, type View } from '../context'
 import { VIEW_PERMISSION_KEY } from '../types'
@@ -21,7 +22,14 @@ const NAV: NavItem[] = [
 ]
 
 export default function Sidebar() {
-  const { currentUser, roles, hasPermission, view, setView, logout, sidebarOpen, setSidebarOpen } = useApp()
+  const { currentUser, roles, hasPermission, view, setView, logout, sidebarOpen, setSidebarOpen, settings } = useApp()
+
+  // En tablets (y pantallas angostas) arrancamos con el menú colapsado a solo íconos.
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth <= 1024) setSidebarOpen(false)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
   if (!currentUser) return null
 
   const role = currentUser.role
@@ -35,18 +43,61 @@ export default function Sidebar() {
 
   if (!sidebarOpen) {
     return (
-      <button
-        onClick={() => setSidebarOpen(true)}
-        style={{
-          position: 'fixed', top: 16, left: 16, zIndex: 100,
-          width: 40, height: 40, background: '#DC2626', color: '#fff',
-          border: 'none', borderRadius: 10, cursor: 'pointer',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          boxShadow: '0 4px 12px rgba(220,38,38,0.35)',
-        }}
-      >
-        <Icon name="menu" size={18} color="#fff" />
-      </button>
+      <aside style={{
+        width: 64, minWidth: 64, background: '#FFFFFF', borderRight: '1px solid #E4E4E7',
+        display: 'flex', flexDirection: 'column', alignItems: 'center',
+        height: '100vh', position: 'sticky', top: 0, zIndex: 30, padding: '14px 0',
+      }}>
+        <button
+          onClick={() => setSidebarOpen(true)}
+          title="Expandir menú"
+          style={{
+            width: 40, height: 40, borderRadius: 10, border: 'none', cursor: 'pointer',
+            background: settings.logoUrl ? '#FFFFFF' : '#DC2626',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            marginBottom: 18, flexShrink: 0, overflow: 'hidden',
+            boxShadow: settings.logoUrl ? '0 0 0 1.5px #E4E4E7' : '0 4px 12px rgba(220,38,38,0.3)',
+          }}
+        >
+          {settings.logoUrl
+            ? <img src={settings.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            : <Icon name="menu" size={18} color="#fff" />}
+        </button>
+
+        <nav style={{ flex: 1, overflowY: 'auto', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4, width: '100%' }}>
+          {visible.map(item => {
+            const active = view === item.id
+            return (
+              <button
+                key={item.id}
+                onClick={() => setView(item.id)}
+                title={item.label}
+                style={{
+                  width: 42, height: 42, borderRadius: 10, border: 'none', cursor: 'pointer',
+                  background: active ? '#FEF2F2' : 'transparent',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+                  transition: 'background 0.12s',
+                }}
+                onMouseEnter={e => { if (!active) (e.currentTarget as HTMLElement).style.background = '#F7F7F8' }}
+                onMouseLeave={e => { if (!active) (e.currentTarget as HTMLElement).style.background = 'transparent' }}
+              >
+                <Icon name={item.icon} size={17} color={active ? '#DC2626' : '#71717A'} />
+              </button>
+            )
+          })}
+        </nav>
+
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, paddingTop: 10, marginTop: 8, borderTop: '1px solid #E4E4E7', width: '100%' }}>
+          <div title={`${currentUser.name} · ${roleLabel}`} style={{
+            width: 32, height: 32, borderRadius: '50%', background: '#FBBF24', color: '#18181B',
+            display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 11, fontWeight: 800, flexShrink: 0,
+          }}>{initials}</div>
+          <button onClick={logout} title="Cerrar sesión"
+            style={{ width: 34, height: 34, borderRadius: 9, border: '1px solid #FECACA', background: '#FEF2F2', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+            <Icon name="logout" size={14} color="#DC2626" />
+          </button>
+        </div>
+      </aside>
     )
   }
 
@@ -71,13 +122,16 @@ export default function Sidebar() {
         <div style={{ padding: '16px 16px 12px', borderBottom: '1px solid #E4E4E7', display: 'flex', alignItems: 'center', gap: 10 }}>
           <div style={{
             width: 38, height: 38,
-            background: '#DC2626',
-            borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            background: settings.logoUrl ? '#FFFFFF' : '#DC2626',
+            border: settings.logoUrl ? '1px solid #E4E4E7' : 'none',
+            borderRadius: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, overflow: 'hidden',
           }}>
-            <Icon name="pizza" size={20} color="#fff" strokeWidth={2} />
+            {settings.logoUrl
+              ? <img src={settings.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <Icon name="pizza" size={20} color="#fff" strokeWidth={2} />}
           </div>
-          <div style={{ flex: 1 }}>
-            <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 17, color: '#18181B', letterSpacing: '-0.01em', lineHeight: 1 }}>PIZZAIAS</div>
+          <div style={{ flex: 1, overflow: 'hidden' }}>
+            <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 17, color: '#18181B', letterSpacing: '-0.01em', lineHeight: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{settings.name}</div>
             <div style={{ fontSize: 10, color: '#A1A1AA', letterSpacing: '0.06em', textTransform: 'uppercase', marginTop: 1 }}>Sistema POS</div>
           </div>
           <button

@@ -1,3 +1,26 @@
+export interface BusinessSettings {
+  name: string
+  address: string
+  phone: string
+  rfc: string
+  tax: number
+  logoUrl: string
+  reportEmail: string
+  currency: string
+  timezone: string
+  language: string
+  autoLogout: number
+  initialFloat: number
+  ticketHeader: string
+  ticketFooter: string
+  ticketShowLogo: boolean
+  printerWidth: number
+  deliveryBaseRate: number
+  deliveryFreeThreshold: number
+  deliveryRadiusKm: number
+  deliveryEstimatedMinutes: number
+}
+
 export type UserRole = string
 
 export interface Role {

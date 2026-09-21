@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory, Role } from './types'
-import { USERS, ORDERS, EXTRAS, PRODUCTS, INGREDIENTS, AUDIT_LOG, PROMOTIONS, INGREDIENT_CATEGORIES, ROLES, generateOrderNumber } from './data'
+import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory, Role, BusinessSettings } from './types'
+import { USERS, ORDERS, EXTRAS, PRODUCTS, INGREDIENTS, AUDIT_LOG, PROMOTIONS, INGREDIENT_CATEGORIES, ROLES, DEFAULT_SETTINGS, generateOrderNumber } from './data'
 
 export type View =
   | 'login' | 'main' | 'pedido' | 'extras' | 'historial' | 'cola'
@@ -31,6 +31,8 @@ interface AppContextType {
   roles: Role[]
   setRoles: (r: Role[]) => void
   hasPermission: (permKey: string) => boolean
+  settings: BusinessSettings
+  setSettings: (s: BusinessSettings) => void
   orders: Order[]
   addOrder: (o: Order) => void
   updateOrder: (id: string, patch: Partial<Order>) => void
@@ -60,6 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [activePromo, setActivePromo] = useState<Promotion | null>(null)
   const [users, setUsers] = useState<User[]>(USERS)
   const [roles, setRoles] = useState<Role[]>(ROLES)
+  const [settings, setSettings] = useState<BusinessSettings>(DEFAULT_SETTINGS)
   const [orders, setOrders] = useState<Order[]>(ORDERS)
   const [extras, setExtras] = useState<Extra[]>(EXTRAS)
   const [products, setProducts] = useState<Product[]>(PRODUCTS)
@@ -135,7 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       slices, setSlices,
       ticketItems, addTicketItem, removeTicketItem, updateItemQty, clearTicket,
       activePromo, setActivePromo,
-      users, setUsers, roles, setRoles, hasPermission, orders, addOrder, updateOrder,
+      users, setUsers, roles, setRoles, hasPermission, settings, setSettings, orders, addOrder, updateOrder,
       extras, setExtras, products, setProducts,
       ingredients, setIngredients, ingredientCategories, setIngredientCategories,
       auditLog, addAudit,

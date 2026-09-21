@@ -13,7 +13,7 @@ const ROLE_COLORS: Record<string, string> = {
 }
 
 export default function Login() {
-  const { users, login } = useApp()
+  const { users, login, settings } = useApp()
   const [selectedUser, setSelectedUser] = useState<string | null>(null)
   const [pin, setPin] = useState('')
   const [error, setError] = useState('')
@@ -73,12 +73,14 @@ export default function Login() {
         <div style={{ position: 'absolute', width: 160, height: 160, background: 'rgba(255,255,255,0.06)', borderRadius: '50%', bottom: 100, right: 40 }} />
 
         <div style={{ position: 'relative', textAlign: 'center' }}>
-          {/* Big pizza icon */}
-          <div style={{ width: 96, height: 96, background: 'rgba(255,255,255,0.15)', borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px' }}>
-            <Icon name="pizza" size={52} color="#FFFFFF" strokeWidth={1.5} />
+          {/* Big pizza icon / logo del comercio */}
+          <div style={{ width: 96, height: 96, background: settings.logoUrl ? '#FFFFFF' : 'rgba(255,255,255,0.15)', borderRadius: 28, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 24px', overflow: 'hidden' }}>
+            {settings.logoUrl
+              ? <img src={settings.logoUrl} alt="Logo" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+              : <Icon name="pizza" size={52} color="#FFFFFF" strokeWidth={1.5} />}
           </div>
           <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 52, color: '#FFFFFF', lineHeight: 1, letterSpacing: '-0.02em' }}>
-            PIZZAIAS
+            {settings.name}
           </div>
           <div style={{ fontSize: 14, color: 'rgba(255,255,255,0.65)', marginTop: 10, letterSpacing: '0.15em', textTransform: 'uppercase' }}>
             Sistema Punto de Venta

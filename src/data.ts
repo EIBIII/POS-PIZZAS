@@ -1,8 +1,31 @@
 import type {
   User, Product, Extra, Ingredient, Order,
   AuditEntry, CashRegister, InventoryMovement,
-  Promotion, IngredientCategory, Role
+  Promotion, IngredientCategory, Role, BusinessSettings
 } from './types'
+
+export const DEFAULT_SETTINGS: BusinessSettings = {
+  name: 'PIZZAIAS',
+  address: 'Av. Insurgentes 420, CDMX',
+  phone: '55 1234 5678',
+  rfc: 'PIZ123456ABC',
+  tax: 16,
+  logoUrl: '',
+  reportEmail: '',
+  currency: 'MXN',
+  timezone: 'America/Mexico_City',
+  language: 'es',
+  autoLogout: 30,
+  initialFloat: 500,
+  ticketHeader: 'PIZZAIAS',
+  ticketFooter: 'Gracias por su visita',
+  ticketShowLogo: true,
+  printerWidth: 80,
+  deliveryBaseRate: 35,
+  deliveryFreeThreshold: 400,
+  deliveryRadiusKm: 5,
+  deliveryEstimatedMinutes: 45,
+}
 
 export const ROLES: Role[] = [
   { id: 'super_admin', label: 'Super Admin', color: '#DC2626', permissions: { ventas: true, pedidos: true, extras: true, historial: true, cola: true, dashboard: true, usuarios: true, productos: true, inventario: true, reportes: true, configuracion: true, auditoria: true, corte: true } },
