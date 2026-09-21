@@ -23,7 +23,10 @@ export default function ColaPView() {
 
   const isKitchen = currentUser?.role === 'cocinero'
 
-  const allActive = orders.filter(o => ['nuevo', 'confirmado', 'preparando', 'cocinando', 'listo'].includes(o.status))
+  // Solo entran a la cola de cocina los pedidos que incluyen pizza (requieren
+  // preparación). Las ventas de solo rebanadas no pasan por aquí: se cobran
+  // directo desde Pedidos Activos en el Punto de Venta.
+  const allActive = orders.filter(o => ['nuevo', 'confirmado', 'preparando', 'cocinando', 'listo'].includes(o.status) && o.items.some(i => i.type === 'pizza'))
   const tabOrders = allActive.filter(o => {
     const tab = TABS.find(t => t.id === activeTab)
     return tab?.statuses.includes(o.status)

@@ -11,11 +11,13 @@ const PAY_STATUS = {
 }
 
 export default function Ticket() {
-  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, generateOrderNumber, currentUser } = useApp()
+  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, updateOrder, orders, generateOrderNumber, currentUser, recalledOrderId } = useApp()
   const [payStatus, setPayStatus] = useState<keyof typeof PAY_STATUS>('pendiente')
   const [payMethod, setPayMethod] = useState<'efectivo' | 'tarjeta'>('efectivo')
   const [showConfirm, setShowConfirm] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
+
+  const recalledOrder = recalledOrderId ? orders.find(o => o.id === recalledOrderId) ?? null : null
 
   const subtotal = ticketItems.reduce((s, i) => s + i.total, 0)
   const discount = activePromo
@@ -24,18 +26,40 @@ export default function Ticket() {
   const total = Math.max(0, subtotal - discount)
   const change = payMethod === 'efectivo' && cashReceived ? Math.max(0, parseFloat(cashReceived) - total) : 0
 
+  // El pago en efectivo con estado PAGADO solo se puede cobrar si ya se
+  // capturó el efectivo recibido y este alcanza para cubrir el total.
+  const cashRequired = payMethod === 'efectivo' && payStatus === 'pagado'
+  const cashMissing = cashRequired && (!cashReceived || parseFloat(cashReceived) < total)
+  const canCharge = ticketItems.length > 0 && !cashMissing
+
   function handleCobrar() {
-    if (!ticketItems.length) return
-    const order: Order = {
-      id: `o${Date.now()}`, orderNumber: generateOrderNumber(),
-      consumption: 'local',
-      items: [...ticketItems],
-      subtotal, discount, total,
-      paymentMethod: payMethod, paymentStatus: payStatus,
-      status: 'confirmado',
-      createdBy: currentUser?.id || '', createdAt: new Date(), updatedAt: new Date(),
+    if (!ticketItems.length || cashMissing) return
+
+    if (recalledOrderId) {
+      // Se está cobrando un pedido pendiente que ya estaba en cola/pedidos activos:
+      // solo se actualiza su estado de pago (y se marca entregado si ya se pagó).
+      updateOrder(recalledOrderId, {
+        paymentMethod: payMethod,
+        paymentStatus: payStatus,
+        ...(payStatus === 'pagado' ? { status: 'entregado' } : {}),
+      })
+    } else {
+      const isPedido = ticketItems.some(i => i.type === 'pizza')
+      const order: Order = {
+        id: `o${Date.now()}`, orderNumber: generateOrderNumber(),
+        consumption: 'local',
+        items: [...ticketItems],
+        subtotal, discount, total,
+        paymentMethod: payMethod, paymentStatus: payStatus,
+        // Si queda pendiente de pago: los pedidos con pizza van a la cola de
+        // cocina (nuevo); las rebanadas no requieren preparación, así que
+        // pasan directo a "listo" y aparecen en Pedidos Activos hasta que
+        // el cliente pase por ellas y se cobren desde aquí.
+        status: payStatus === 'pendiente' ? (isPedido ? 'nuevo' : 'listo') : 'confirmado',
+        createdBy: currentUser?.id || '', createdAt: new Date(), updatedAt: new Date(),
+      }
+      addOrder(order)
     }
-    addOrder(order)
     clearTicket()
     setShowConfirm(false)
     setCashReceived('')
@@ -71,6 +95,11 @@ export default function Ticket() {
             )}
           </div>
         </div>
+        {recalledOrder && (
+          <div style={{ marginTop: 8, padding: '6px 10px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 8, fontSize: 11, color: '#92400E', fontWeight: 600 }}>
+            Cobrando pedido pendiente {recalledOrder.orderNumber}
+          </div>
+        )}
       </div>
 
       {/* Items */}
@@ -194,25 +223,32 @@ export default function Ticket() {
                 Cambio: ${change.toFixed(2)}
               </div>
             )}
+            {cashRequired && cashMissing && (
+              <div style={{ fontSize: 11.5, color: '#DC2626', fontWeight: 600, marginTop: 5 }}>
+                {cashReceived
+                  ? `El efectivo recibido no cubre el total. Faltan $${(total - parseFloat(cashReceived)).toFixed(2)}.`
+                  : 'Ingresa el efectivo recibido para poder cobrar.'}
+              </div>
+            )}
           </div>
         )}
       </div>
 
       {/* Cobrar */}
       <div style={{ padding: '12px 14px', background: '#FFFFFF' }}>
-        <button onClick={() => setShowConfirm(true)} disabled={!ticketItems.length}
+        <button onClick={() => setShowConfirm(true)} disabled={!canCharge}
           style={{
             width: '100%', padding: '13px', fontFamily: 'Cooper Black, serif', fontSize: 16, letterSpacing: '-0.01em',
-            background: ticketItems.length ? '#DC2626' : '#F4F4F5',
-            color: ticketItems.length ? '#fff' : '#A1A1AA',
-            border: 'none', borderRadius: 10, cursor: ticketItems.length ? 'pointer' : 'not-allowed',
-            boxShadow: ticketItems.length ? '0 4px 16px rgba(220,38,38,0.3)' : 'none',
+            background: canCharge ? '#DC2626' : '#F4F4F5',
+            color: canCharge ? '#fff' : '#A1A1AA',
+            border: 'none', borderRadius: 10, cursor: canCharge ? 'pointer' : 'not-allowed',
+            boxShadow: canCharge ? '0 4px 16px rgba(220,38,38,0.3)' : 'none',
             transition: 'all 0.14s',
           }}
-          onMouseEnter={e => { if (ticketItems.length) (e.currentTarget as HTMLElement).style.background = '#B91C1C' }}
-          onMouseLeave={e => { if (ticketItems.length) (e.currentTarget as HTMLElement).style.background = '#DC2626' }}
+          onMouseEnter={e => { if (canCharge) (e.currentTarget as HTMLElement).style.background = '#B91C1C' }}
+          onMouseLeave={e => { if (canCharge) (e.currentTarget as HTMLElement).style.background = '#DC2626' }}
         >
-          Cobrar ${total}
+          {recalledOrder ? `Cobrar pedido ${recalledOrder.orderNumber}` : `Cobrar $${total}`}
         </button>
       </div>
 

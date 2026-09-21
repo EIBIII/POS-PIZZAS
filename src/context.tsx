@@ -25,6 +25,8 @@ interface AppContextType {
   clearTicket: () => void
   activePromo: Promotion | null
   setActivePromo: (p: Promotion | null) => void
+  recalledOrderId: string | null
+  loadOrderIntoTicket: (o: Order) => void
 
   users: User[]
   setUsers: (u: User[]) => void
@@ -60,6 +62,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [slices, setSlices] = useState(1)
   const [ticketItems, setTicketItems] = useState<TicketItem[]>([])
   const [activePromo, setActivePromo] = useState<Promotion | null>(null)
+  const [recalledOrderId, setRecalledOrderId] = useState<string | null>(null)
   const [users, setUsers] = useState<User[]>(USERS)
   const [roles, setRoles] = useState<Role[]>(ROLES)
   const [settings, setSettings] = useState<BusinessSettings>(DEFAULT_SETTINGS)
@@ -87,6 +90,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setTicketItems([])
     setSlices(1)
     setActivePromo(null)
+    setRecalledOrderId(null)
   }
 
   function addTicketItem(item: TicketItem) {
@@ -111,7 +115,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ? { ...i, quantity: qty, total: qty * i.unitPrice } : i))
   }
 
-  function clearTicket() { setTicketItems([]); setActivePromo(null); setSlices(1) }
+  function clearTicket() { setTicketItems([]); setActivePromo(null); setSlices(1); setRecalledOrderId(null) }
+
+  function loadOrderIntoTicket(order: Order) {
+    setTicketItems(order.items)
+    setActivePromo(null)
+    setRecalledOrderId(order.id)
+    setView('main')
+  }
 
   function addOrder(o: Order) {
     setOrders(prev => [o, ...prev])
@@ -137,7 +148,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       currentUser, view, setView, login, logout, sidebarOpen, setSidebarOpen,
       slices, setSlices,
       ticketItems, addTicketItem, removeTicketItem, updateItemQty, clearTicket,
-      activePromo, setActivePromo,
+      activePromo, setActivePromo, recalledOrderId, loadOrderIntoTicket,
       users, setUsers, roles, setRoles, hasPermission, settings, setSettings, orders, addOrder, updateOrder,
       extras, setExtras, products, setProducts,
       ingredients, setIngredients, ingredientCategories, setIngredientCategories,
