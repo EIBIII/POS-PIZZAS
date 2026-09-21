@@ -200,8 +200,10 @@ export const AUDIT_LOG: AuditEntry[] = [
 ]
 
 export const PROMOTIONS: Promotion[] = [
-  { id: 'pr1', name: '10% en segunda pizza', type: 'percent', value: 10, active: true, minAmount: 200 },
+  { id: 'pr1', name: 'Descuento 10%', type: 'percent', value: 10, active: true, minAmount: 200 },
   { id: 'pr2', name: 'Descuento gerente $20', type: 'fixed', value: 20, active: true },
+  { id: 'pr3', name: 'Descuento Total', type: 'percent', value: 100, active: true },
+
 ]
 
 export const CASH_REGISTER: CashRegister = {

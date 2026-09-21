@@ -2,7 +2,7 @@ import { useApp } from '../context'
 import Ticket from '../components/Ticket'
 import Icon from '../components/Icon'
 
-const SLICE_PRICE = 20
+const SLICE_PRICE = 25
 
 export default function MainPOS() {
   const { slices, setSlices, addTicketItem, orders, setView, setSidebarOpen, sidebarOpen } = useApp()
