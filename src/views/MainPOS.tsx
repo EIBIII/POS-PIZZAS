@@ -116,10 +116,8 @@ export default function MainPOS() {
                   padding: '11px 32px', background: '#DC2626', color: '#fff',
                   border: 'none', borderRadius: 10, cursor: 'pointer',
                   fontFamily: 'Cooper Black, serif', fontSize: 15, letterSpacing: '-0.01em',
-                  boxShadow: '0 4px 16px rgba(220,38,38,0.25)', transition: 'all 0.12s',
+                  boxShadow: '0 4px 16px rgba(220,38,38,0.25)',
                 }}
-                onMouseEnter={e => { (e.currentTarget as HTMLElement).style.background = '#B91C1C'; (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)' }}
-                onMouseLeave={e => { (e.currentTarget as HTMLElement).style.background = '#DC2626'; (e.currentTarget as HTMLElement).style.transform = 'none' }}
               >
                 Agregar al ticket
               </button>
@@ -184,17 +182,7 @@ function ActionCard({ label, icon, view, desc }: { label: string; icon: string; 
       style={{
         height: 235, background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 16,
         cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center',
-        justifyContent: 'center', gap: 14, transition: 'all 0.15s', padding: 20,
-      }}
-      onMouseEnter={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = '#DC2626'
-        ;(e.currentTarget as HTMLElement).style.boxShadow = '0 8px 32px rgba(220,38,38,0.1)'
-        ;(e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)'
-      }}
-      onMouseLeave={e => {
-        (e.currentTarget as HTMLElement).style.borderColor = '#E4E4E7'
-        ;(e.currentTarget as HTMLElement).style.boxShadow = 'none'
-        ;(e.currentTarget as HTMLElement).style.transform = 'none'
+        justifyContent: 'center', gap: 14, padding: 20,
       }}
     >
       <div style={{ width: 64, height: 64, background: '#FEF2F2', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
