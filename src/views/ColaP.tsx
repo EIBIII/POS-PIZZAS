@@ -121,13 +121,21 @@ export default function ColaPView() {
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 10 }}>
                     <div>
                       <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 15, color: '#18181B' }}>{order.orderNumber}</div>
-                      <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 1 }}>{order.customer || 'Sin nombre'}</div>
+                      <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 1 }}>{order.customer || 'Venta mostrador'}</div>
                     </div>
-                    <div style={{ textAlign: 'right' }}>
-                      <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, color, fontWeight: 700 }}>
-                        {getETA(order)}
+                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: 6 }}>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 11.5, color, fontWeight: 700 }}>
+                          {getETA(order)}
+                        </div>
+                        <div style={{ fontSize: 10.5, color: '#A1A1AA', marginTop: 2 }}>Hace {elapsed}m</div>
                       </div>
-                      <div style={{ fontSize: 10.5, color: '#A1A1AA', marginTop: 2 }}>Hace {elapsed}m</div>
+                      {order.items.some(i => i.type === 'pizza') && (
+                        <button onClick={() => setDetailOrder(order)} title="Ver ingredientes y gramos"
+                          style={{ width: 24, height: 24, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Icon name="info" size={13} color="#2563EB" />
+                        </button>
+                      )}
                     </div>
                   </div>
 
@@ -178,18 +186,6 @@ export default function ColaPView() {
                         {nextLabel(order.status)}
                       </button>
                     )}
-                    {isKitchen && order.items.some(i => i.type === 'pizza') && (
-                      <button onClick={() => setDetailOrder(order)}
-                        style={{
-                          padding: '9px 12px', fontSize: 12, fontWeight: 600,
-                          background: '#F7F7F8', color: '#71717A',
-                          border: '1px solid #E4E4E7', borderRadius: 8, cursor: 'pointer',
-                          display: 'flex', alignItems: 'center', gap: 5,
-                        }}
-                      >
-                        <Icon name="eye" size={14} color="#71717A" /> Receta
-                      </button>
-                    )}
                   </div>
                 </div>
               )
@@ -205,7 +201,7 @@ export default function ColaPView() {
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
               <div>
                 <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 18, color: '#18181B' }}>Receta — {detailOrder.orderNumber}</div>
-                <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 2 }}>{detailOrder.customer || 'Sin nombre'}</div>
+                <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 2 }}>{detailOrder.customer || 'Venta mostrador'}</div>
               </div>
               <button onClick={() => setDetailOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A1A1AA', display: 'flex' }}>
                 <Icon name="x" size={20} />

@@ -2,11 +2,18 @@ import { useState } from 'react'
 import { useApp } from '../context'
 import type { Ingredient, IngredientCategory } from '../types'
 import Icon from '../components/Icon'
+import { EXTRA_ICON_OPTIONS, getIngredientIcon } from '../productIcon'
 
 type StockFilter = 'todos' | 'bajo' | 'ok'
 
-const BLANK_ING: Omit<Ingredient, 'id'> = { name: '', unit: 'g', stock: 0, minStock: 0, cost: 0, provider: '', categoryId: 'cat1' }
+const BLANK_ING: Omit<Ingredient, 'id'> = { name: '', unit: 'g', stock: 0, minStock: 0, cost: 0, provider: '', expiry: '', icon: '', categoryId: 'cat1' }
 const BLANK_CAT: Omit<IngredientCategory, 'id'> = { name: '', color: '#DC2626' }
+
+function daysUntil(dateStr: string): number {
+  const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  return Math.round((target.getTime() - today.getTime()) / 86400000)
+}
 
 export default function Inventario() {
   const { ingredients, setIngredients, ingredientCategories, setIngredientCategories } = useApp()
@@ -31,7 +38,7 @@ export default function Inventario() {
   function openIng(ing: Ingredient) {
     setSelected(ing)
     setIsNew(false)
-    setForm({ name: ing.name, unit: ing.unit, stock: ing.stock, minStock: ing.minStock, cost: ing.cost, provider: ing.provider, categoryId: ing.categoryId, customPrice: ing.customPrice })
+    setForm({ name: ing.name, unit: ing.unit, stock: ing.stock, minStock: ing.minStock, cost: ing.cost, provider: ing.provider, categoryId: ing.categoryId, customPrice: ing.customPrice, expiry: ing.expiry ?? '', icon: ing.icon ?? '' })
   }
 
   function openNew() {
@@ -193,15 +200,22 @@ export default function Inventario() {
                 {filtered.map(ing => {
                   const cat = ingredientCategories.find(c => c.id === ing.categoryId)
                   const isLow = ing.stock <= ing.minStock
+                  const expiryDays = ing.expiry ? daysUntil(ing.expiry) : null
+                  const isExpired = expiryDays !== null && expiryDays < 0
+                  const isExpiringSoon = expiryDays !== null && expiryDays >= 0 && expiryDays <= 3
                   return (
                     <button key={ing.id} onClick={() => openIng(ing)}
                       style={{ background: selected?.id === ing.id ? '#FEF2F2' : '#FFFFFF', border: `1.5px solid ${selected?.id === ing.id ? '#DC2626' : isLow ? '#FECACA' : '#E4E4E7'}`, borderRadius: 10, padding: '12px 16px', display: 'flex', alignItems: 'center', gap: 12, cursor: 'pointer', textAlign: 'left', transition: 'all 0.12s' }}>
-                      <div style={{ width: 10, height: 10, borderRadius: 3, background: cat?.color ?? '#A1A1AA', flexShrink: 0 }} />
-                      <div style={{ flex: 1 }}>
+                      <div style={{ width: 34, height: 34, borderRadius: 9, background: `${cat?.color ?? '#A1A1AA'}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                        <Icon name={getIngredientIcon(ing)} size={16} color={cat?.color ?? '#71717A'} />
+                      </div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontSize: 13.5, fontWeight: 700, color: '#18181B' }}>{ing.name}</div>
                         <div style={{ fontSize: 11.5, color: '#A1A1AA', marginTop: 1 }}>{cat?.name} · {ing.provider}</div>
                       </div>
-                      {isLow && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10.5, fontWeight: 700, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA' }}>Stock bajo</span>}
+                      {isLow && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10.5, fontWeight: 700, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', flexShrink: 0 }}>Stock bajo</span>}
+                      {isExpired && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10.5, fontWeight: 700, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', flexShrink: 0 }}>Caducado</span>}
+                      {!isExpired && isExpiringSoon && <span style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10.5, fontWeight: 700, background: '#FFFBEB', color: '#D97706', border: '1px solid #FDE68A', flexShrink: 0 }}>Caduca en {expiryDays}d</span>}
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700, color: isLow ? '#DC2626' : '#18181B' }}>{ing.stock} <span style={{ fontSize: 11, fontWeight: 500, color: '#A1A1AA' }}>{ing.unit}</span></div>
                         <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 1 }}>Mín: {ing.minStock}</div>
@@ -235,12 +249,34 @@ export default function Inventario() {
                         style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #E4E4E7', fontSize: 13.5, outline: 'none', boxSizing: 'border-box', fontFamily: type === 'number' ? 'JetBrains Mono, monospace' : 'Inter, sans-serif' }} />
                     </div>
                   ))}
+                  <div style={{ marginBottom: 13 }}>
+                    <label style={{ fontSize: 11.5, fontWeight: 700, color: '#71717A', display: 'block', marginBottom: 5 }}>Fecha de caducidad</label>
+                    <input type="date" value={form.expiry ?? ''} onChange={e => setForm({ ...form, expiry: e.target.value })}
+                      style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #E4E4E7', fontSize: 13.5, outline: 'none', boxSizing: 'border-box', fontFamily: 'JetBrains Mono, monospace' }} />
+                  </div>
                   <div style={{ marginBottom: 18 }}>
                     <label style={{ fontSize: 11.5, fontWeight: 700, color: '#71717A', display: 'block', marginBottom: 5 }}>Categoría</label>
                     <select value={form.categoryId} onChange={e => setForm({ ...form, categoryId: e.target.value })}
                       style={{ width: '100%', padding: '8px 12px', borderRadius: 8, border: '1.5px solid #E4E4E7', fontSize: 13.5, outline: 'none', background: '#FFFFFF' }}>
                       {ingredientCategories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                     </select>
+                  </div>
+                  <div style={{ marginBottom: 18 }}>
+                    <label style={{ fontSize: 11.5, fontWeight: 700, color: '#71717A', display: 'block', marginBottom: 7 }}>
+                      Ícono (para identificarlo en Extras)
+                    </label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                      <button onClick={() => setForm({ ...form, icon: '' })} title="Automático según categoría"
+                        style={{ width: 34, height: 34, borderRadius: 9, background: !form.icon ? '#FEF2F2' : '#F7F7F8', border: `1.5px solid ${!form.icon ? '#DC2626' : '#E4E4E7'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <Icon name={getIngredientIcon({ ...form, icon: undefined })} size={15} color={!form.icon ? '#DC2626' : '#71717A'} />
+                      </button>
+                      {EXTRA_ICON_OPTIONS.map(icon => (
+                        <button key={icon} onClick={() => setForm({ ...form, icon })} title={icon}
+                          style={{ width: 34, height: 34, borderRadius: 9, background: form.icon === icon ? '#FEF2F2' : '#F7F7F8', border: `1.5px solid ${form.icon === icon ? '#DC2626' : '#E4E4E7'}`, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                          <Icon name={icon} size={15} color={form.icon === icon ? '#DC2626' : '#71717A'} />
+                        </button>
+                      ))}
+                    </div>
                   </div>
                   <div style={{ display: 'flex', gap: 8 }}>
                     {selected && <button onClick={() => deleteIng(selected.id)} style={{ padding: '9px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 8, fontSize: 13, fontWeight: 700, cursor: 'pointer', color: '#DC2626' }}>Eliminar</button>}

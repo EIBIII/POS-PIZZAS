@@ -104,7 +104,7 @@ export function buildDashboardPDF(
     body: todayOrders.length
       ? todayOrders.map(o => [
           o.orderNumber,
-          o.customer || 'Sin nombre',
+          o.customer || 'Venta mostrador',
           o.paymentMethod === 'efectivo' ? 'Efectivo' : 'Tarjeta',
           o.status,
           new Date(o.createdAt).toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' }),

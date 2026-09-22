@@ -113,26 +113,30 @@ export default function HistorialView() {
       </div>
 
       {/* Filters */}
-      <div style={{ background: '#FFFFFF', padding: '10px 24px', borderBottom: '1px solid #E4E4E7', display: 'flex', gap: 8, flexWrap: 'wrap', flexShrink: 0 }}>
-        <div style={{ position: 'relative' }}>
-          <Icon name="search" size={14} color="#A1A1AA" />
-          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Pedido o cliente..."
-            style={{ paddingLeft: 28, ...filterInput }} />
+      <div style={{ background: '#FFFFFF', padding: '12px 24px', borderBottom: '1px solid #E4E4E7', display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', flexShrink: 0 }}>
+        <div style={{ position: 'relative', flex: '1 1 220px', minWidth: 180, maxWidth: 320 }}>
+          <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
+            <Icon name="search" size={14} color="#A1A1AA" />
+          </div>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Buscar por pedido o cliente..."
+            style={{ width: '100%', boxSizing: 'border-box', height: 36, padding: '0 12px 0 34px', fontSize: 13, background: '#F7F7F8', color: '#18181B', border: '1.5px solid #E4E4E7', borderRadius: 9, outline: 'none' }} />
         </div>
-        <select value={filterStatus} onChange={e => setFilterStatus(e.target.value)} style={filterInput}>
-          <option value="all">Todos los estados</option>
-          {['nuevo','confirmado','preparando','cocinando','listo','entregado','cancelado'].map(s =>
-            <option key={s} value={s}>{s}</option>
-          )}
-        </select>
-        <select value={filterPay} onChange={e => setFilterPay(e.target.value)} style={filterInput}>
-          <option value="all">Todos los pagos</option>
-          {['pendiente','pagado','cancelado','reembolsado'].map(s => <option key={s} value={s}>{s}</option>)}
-        </select>
-        <select value={filterDate} onChange={e => setFilterDate(e.target.value)} style={filterInput}>
-          <option value="all">Todas las fechas</option>
-          <option value="today">Solo hoy</option>
-        </select>
+
+        <div style={{ width: 1, height: 22, background: '#E4E4E7' }} />
+
+        <FilterSelect icon="filter" value={filterStatus} onChange={setFilterStatus}
+          options={[['all', 'Todos los estados'], ...['nuevo', 'confirmado', 'preparando', 'cocinando', 'listo', 'entregado', 'cancelado'].map(s => [s, capitalize(s)] as [string, string])]} />
+        <FilterSelect icon="cashRegister" value={filterPay} onChange={setFilterPay}
+          options={[['all', 'Todos los pagos'], ...['pendiente', 'pagado', 'cancelado', 'reembolsado'].map(s => [s, capitalize(s)] as [string, string])]} />
+        <FilterSelect icon="calendar" value={filterDate} onChange={setFilterDate}
+          options={[['all', 'Todas las fechas'], ['today', 'Solo hoy']]} />
+
+        {(search || filterStatus !== 'all' || filterPay !== 'all' || filterDate !== 'all') && (
+          <button onClick={() => { setSearch(''); setFilterStatus('all'); setFilterPay('all'); setFilterDate('all') }}
+            style={{ display: 'flex', alignItems: 'center', gap: 5, height: 36, padding: '0 12px', fontSize: 12.5, fontWeight: 600, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 9, cursor: 'pointer' }}>
+            <Icon name="x" size={12} color="#DC2626" /> Limpiar filtros
+          </button>
+        )}
       </div>
 
       {/* Table */}
@@ -163,7 +167,7 @@ export default function HistorialView() {
                     <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, fontWeight: 700, color: '#18181B' }}>{o.orderNumber}</div>
                   </td>
                   {isManager && <td style={{ padding: '11px 14px', fontSize: 12, color: '#71717A' }}>{getUserName(o.createdBy)}</td>}
-                  <td style={{ padding: '11px 14px', fontSize: 13, color: '#3F3F46', fontWeight: 500 }}>{o.customer || '—'}</td>
+                  <td style={{ padding: '11px 14px', fontSize: 13, color: '#3F3F46', fontWeight: 500 }}>{o.customer || 'Venta mostrador'}</td>
                   <td style={{ padding: '11px 14px' }}>
                     <span style={{ padding: '2px 7px', borderRadius: 99, fontSize: 10.5, fontWeight: 600, background: '#F7F7F8', color: '#71717A', textTransform: 'capitalize' }}>{o.consumption}</span>
                   </td>
@@ -215,7 +219,7 @@ export default function HistorialView() {
           <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 16 }}>
             <div>
               <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 17, color: '#18181B' }}>{selected.orderNumber}</div>
-              <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 2 }}>{selected.customer || 'Sin nombre'}</div>
+              <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 2 }}>{selected.customer || 'Venta mostrador'}</div>
             </div>
             <button onClick={() => setSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A1A1AA', display: 'flex' }}>
               <Icon name="x" size={18} />
@@ -347,9 +351,33 @@ export default function HistorialView() {
   )
 }
 
-const filterInput: React.CSSProperties = {
-  padding: '7px 10px', fontSize: 12.5, background: '#F7F7F8', color: '#18181B',
-  border: '1px solid #E4E4E7', borderRadius: 8, outline: 'none',
+function capitalize(s: string) {
+  return s.charAt(0).toUpperCase() + s.slice(1)
+}
+
+function FilterSelect({ icon, value, onChange, options }: { icon: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
+  const isDefault = value === 'all'
+  return (
+    <div style={{ position: 'relative', flexShrink: 0 }}>
+      <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
+        <Icon name={icon} size={13} color={isDefault ? '#A1A1AA' : '#DC2626'} />
+      </div>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        style={{
+          height: 36, appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
+          padding: '0 26px 0 30px', fontSize: 12.5, fontWeight: 600,
+          background: isDefault ? '#F7F7F8' : '#FEF2F2',
+          color: isDefault ? '#3F3F46' : '#DC2626',
+          border: `1.5px solid ${isDefault ? '#E4E4E7' : '#FECACA'}`,
+          borderRadius: 9, outline: 'none', cursor: 'pointer', maxWidth: 180,
+        }}>
+        {options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+      </select>
+      <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
+        <Icon name="chevronDown" size={12} color={isDefault ? '#A1A1AA' : '#DC2626'} />
+      </div>
+    </div>
+  )
 }
 const btnPri: React.CSSProperties = { flex: 1, padding: '10px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 13, fontWeight: 700 }
 const btnSec: React.CSSProperties = { flex: 1, padding: '10px', background: '#F7F7F8', color: '#3F3F46', border: '1px solid #E4E4E7', borderRadius: 9, cursor: 'pointer', fontSize: 13 }

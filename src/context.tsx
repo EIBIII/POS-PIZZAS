@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory, Role, BusinessSettings } from './types'
+import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory, Role, BusinessSettings, ConsumptionType } from './types'
 import { USERS, ORDERS, EXTRAS, PRODUCTS, INGREDIENTS, AUDIT_LOG, PROMOTIONS, INGREDIENT_CATEGORIES, ROLES, DEFAULT_SETTINGS, generateOrderNumber } from './data'
 
 export type View =
@@ -25,6 +25,12 @@ interface AppContextType {
   clearTicket: () => void
   activePromo: Promotion | null
   setActivePromo: (p: Promotion | null) => void
+  consumption: ConsumptionType
+  setConsumption: (c: ConsumptionType) => void
+  deliveryAddress: string
+  setDeliveryAddress: (a: string) => void
+  deliveryPhone: string
+  setDeliveryPhone: (p: string) => void
   recalledOrderId: string | null
   loadOrderIntoTicket: (o: Order) => void
 
@@ -62,6 +68,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [slices, setSlices] = useState(1)
   const [ticketItems, setTicketItems] = useState<TicketItem[]>([])
   const [activePromo, setActivePromo] = useState<Promotion | null>(null)
+  const [consumption, setConsumption] = useState<ConsumptionType>('local')
+  const [deliveryAddress, setDeliveryAddress] = useState('')
+  const [deliveryPhone, setDeliveryPhone] = useState('')
   const [recalledOrderId, setRecalledOrderId] = useState<string | null>(null)
   const [users, setUsers] = useState<User[]>(USERS)
   const [roles, setRoles] = useState<Role[]>(ROLES)
@@ -91,6 +100,9 @@ export function AppProvider({ children }: { children: ReactNode }) {
     setSlices(1)
     setActivePromo(null)
     setRecalledOrderId(null)
+    setConsumption('local')
+    setDeliveryAddress('')
+    setDeliveryPhone('')
   }
 
   function addTicketItem(item: TicketItem) {
@@ -115,7 +127,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       ? { ...i, quantity: qty, total: qty * i.unitPrice } : i))
   }
 
-  function clearTicket() { setTicketItems([]); setActivePromo(null); setSlices(1); setRecalledOrderId(null) }
+  function clearTicket() { setTicketItems([]); setActivePromo(null); setSlices(1); setRecalledOrderId(null); setConsumption('local'); setDeliveryAddress(''); setDeliveryPhone('') }
 
   function loadOrderIntoTicket(order: Order) {
     setTicketItems(order.items)
@@ -126,7 +138,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
 
   function addOrder(o: Order) {
     setOrders(prev => [o, ...prev])
-    addAudit({ action: 'Nuevo pedido', module: 'Pedidos', detail: `${o.orderNumber} — ${o.customer || 'Sin nombre'} — $${o.total}`, user: currentUser?.name || 'Sistema' })
+    addAudit({ action: 'Nuevo pedido', module: 'Pedidos', detail: `${o.orderNumber} — ${o.customer || 'Venta mostrador'} — $${o.total}`, user: currentUser?.name || 'Sistema' })
   }
 
   function updateOrder(id: string, patch: Partial<Order>) {
@@ -148,7 +160,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       currentUser, view, setView, login, logout, sidebarOpen, setSidebarOpen,
       slices, setSlices,
       ticketItems, addTicketItem, removeTicketItem, updateItemQty, clearTicket,
-      activePromo, setActivePromo, recalledOrderId, loadOrderIntoTicket,
+      activePromo, setActivePromo, consumption, setConsumption, deliveryAddress, setDeliveryAddress, deliveryPhone, setDeliveryPhone, recalledOrderId, loadOrderIntoTicket,
       users, setUsers, roles, setRoles, hasPermission, settings, setSettings, orders, addOrder, updateOrder,
       extras, setExtras, products, setProducts,
       ingredients, setIngredients, ingredientCategories, setIngredientCategories,

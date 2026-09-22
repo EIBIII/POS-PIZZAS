@@ -11,7 +11,7 @@ const PAY_STATUS = {
 }
 
 export default function Ticket() {
-  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, updateOrder, orders, generateOrderNumber, currentUser, recalledOrderId } = useApp()
+  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, updateOrder, orders, generateOrderNumber, currentUser, recalledOrderId, consumption, setConsumption, deliveryAddress, setDeliveryAddress, deliveryPhone, setDeliveryPhone } = useApp()
   const [payStatus, setPayStatus] = useState<keyof typeof PAY_STATUS>('pendiente')
   const [payMethod, setPayMethod] = useState<'efectivo' | 'tarjeta'>('efectivo')
   const [showConfirm, setShowConfirm] = useState(false)
@@ -30,10 +30,11 @@ export default function Ticket() {
   // capturó el efectivo recibido y este alcanza para cubrir el total.
   const cashRequired = payMethod === 'efectivo' && payStatus === 'pagado'
   const cashMissing = cashRequired && (!cashReceived || parseFloat(cashReceived) < total)
-  const canCharge = ticketItems.length > 0 && !cashMissing
+  const deliveryMissing = consumption === 'delivery' && !deliveryAddress.trim()
+  const canCharge = ticketItems.length > 0 && !cashMissing && !deliveryMissing
 
   function handleCobrar() {
-    if (!ticketItems.length || cashMissing) return
+    if (!ticketItems.length || cashMissing || deliveryMissing) return
 
     if (recalledOrderId) {
       // Se está cobrando un pedido pendiente que ya estaba en cola/pedidos activos:
@@ -47,7 +48,8 @@ export default function Ticket() {
       const isPedido = ticketItems.some(i => i.type === 'pizza')
       const order: Order = {
         id: `o${Date.now()}`, orderNumber: generateOrderNumber(),
-        consumption: 'local',
+        consumption,
+        ...(consumption === 'delivery' ? { address: deliveryAddress, phone: deliveryPhone } : {}),
         items: [...ticketItems],
         subtotal, discount, total,
         paymentMethod: payMethod, paymentStatus: payStatus,
@@ -137,6 +139,37 @@ export default function Ticket() {
             </button>
           </div>
         ))}
+      </div>
+
+      {/* Consumption type */}
+      <div style={{ padding: '8px 14px', background: '#F7F7F8', borderBottom: '1px solid #E4E4E7' }}>
+        <div style={{ fontSize: 10, fontWeight: 700, color: '#A1A1AA', letterSpacing: '0.06em', marginBottom: 5 }}>CONSUMO</div>
+        <div style={{ display: 'flex', gap: 4 }}>
+          {([['local', 'Ahí', 'home'], ['llevar', 'Llevar', 'shoppingBag'], ['delivery', 'Delivery', 'bag']] as const).map(([id, label, icon]) => (
+            <button key={id} onClick={() => setConsumption(id)}
+              style={{
+                flex: 1, padding: '7px 2px', fontSize: 11.5, fontWeight: 600,
+                borderRadius: 7, cursor: 'pointer', border: `1px solid ${consumption === id ? '#DC2626' : '#E4E4E7'}`,
+                background: consumption === id ? '#FEF2F2' : '#FFFFFF', color: consumption === id ? '#DC2626' : '#71717A',
+                transition: 'all 0.12s', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+              }}
+            >
+              <Icon name={icon} size={13} color={consumption === id ? '#DC2626' : '#A1A1AA'} />
+              {label}
+            </button>
+          ))}
+        </div>
+        {consumption === 'delivery' && (
+          <div style={{ marginTop: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
+            <input value={deliveryAddress} onChange={e => setDeliveryAddress(e.target.value)} placeholder="Dirección de entrega"
+              style={{ width: '100%', padding: '7px 10px', fontSize: 12.5, background: '#FFFFFF', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 7, outline: 'none', boxSizing: 'border-box' }} />
+            <input value={deliveryPhone} onChange={e => setDeliveryPhone(e.target.value)} placeholder="Teléfono de contacto"
+              style={{ width: '100%', padding: '7px 10px', fontSize: 12.5, background: '#FFFFFF', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 7, outline: 'none', boxSizing: 'border-box' }} />
+            {deliveryMissing && (
+              <div style={{ fontSize: 11, color: '#DC2626', fontWeight: 600 }}>Ingresa la dirección de entrega para poder cobrar.</div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Promos */}

@@ -226,12 +226,15 @@ export default function PedidoView() {
     currentUser,
     setSidebarOpen,
     sidebarOpen,
+    consumption,
+    setConsumption,
+    deliveryAddress: address,
+    setDeliveryAddress: setAddress,
+    deliveryPhone: phone,
+    setDeliveryPhone: setPhone,
   } = useApp()
 
   const [customer, setCustomer] = useState("")
-  const [consumption, setConsumption] = useState<ConsumptionType>("local")
-  const [address, setAddress] = useState("")
-  const [phone, setPhone] = useState("")
   const [deliveryCost, setDeliveryCost] = useState("30")
   const [size, setSize] = useState<PizzaSize>("grande")
   const [slices, setSlices] = useState(12)

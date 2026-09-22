@@ -2,12 +2,38 @@ import { useState } from 'react'
 import { useApp } from '../context'
 import Icon from '../components/Icon'
 
+const MANAGER_ROLES = ['super_admin', 'admin', 'gerente']
+
 export default function CorteCaja() {
-  const { orders, currentUser, settings } = useApp()
+  const { orders, currentUser, settings, users, addAudit } = useApp()
   const [actualAmount, setActualAmount] = useState<number | ''>('')
   const [cut, setCut] = useState(false)
   const [cutData, setCutData] = useState<{ expected: number; actual: number; diff: number; initialFloat: number } | null>(null)
   const [initialFloat, setInitialFloat] = useState<number>(settings.initialFloat)
+  const [floatUnlocked, setFloatUnlocked] = useState(false)
+  const [showPIN, setShowPIN] = useState(false)
+  const [pin, setPinVal] = useState('')
+  const [pinError, setPinError] = useState('')
+
+  const isManager = MANAGER_ROLES.includes(currentUser?.role || '')
+  const canEditFloat = isManager || floatUnlocked
+
+  function handlePINDigit(d: string) {
+    const newPin = pin + d
+    setPinVal(newPin)
+    if (newPin.length === 4) {
+      const manager = users.find(u => MANAGER_ROLES.includes(u.role) && u.pin === newPin && u.active)
+      if (manager) {
+        setShowPIN(false)
+        setFloatUnlocked(true)
+        setPinVal('')
+        addAudit({ action: 'PIN gerente validado', module: 'Corte de Caja', detail: `${manager.name} autorizó modificar el fondo inicial`, user: currentUser?.name || '' })
+      } else {
+        setPinError('PIN incorrecto')
+        setTimeout(() => { setPinVal(''); setPinError('') }, 1200)
+      }
+    }
+  }
 
   const today = new Date(); today.setHours(0, 0, 0, 0)
   const todayOrders = orders.filter(o => o.createdAt >= today && o.status === 'entregado')
@@ -78,7 +104,7 @@ export default function CorteCaja() {
         {new Date().toLocaleDateString('es-MX', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} · {currentUser?.name}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 14, marginBottom: 24 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))', gap: 14, marginBottom: 24 }}>
         {[
           { label: 'Pedidos entregados', value: String(todayOrders.length), color: '#16A34A', icon: 'check' },
           { label: 'Ventas efectivo', value: `$${cashTotal.toLocaleString()}`, color: '#DC2626', icon: 'cashRegister' },
@@ -86,12 +112,12 @@ export default function CorteCaja() {
           { label: 'Cancelados', value: String(cancelledCount), color: cancelledCount > 3 ? '#DC2626' : '#A1A1AA', icon: 'x' },
         ].map(kpi => (
           <div key={kpi.label} style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 14, padding: '16px 18px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-              <div>
-                <div style={{ fontSize: 10.5, fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8 }}>{kpi.label}</div>
-                <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 24, color: kpi.color }}>{kpi.value}</div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 10 }}>
+              <div style={{ minWidth: 0 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: '#A1A1AA', textTransform: 'uppercase', letterSpacing: '0.07em', marginBottom: 8, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{kpi.label}</div>
+                <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 24, color: kpi.color, whiteSpace: 'nowrap' }}>{kpi.value}</div>
               </div>
-              <div style={{ width: 36, height: 36, background: `${kpi.color}12`, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <div style={{ width: 36, height: 36, background: `${kpi.color}12`, borderRadius: 9, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                 <Icon name={kpi.icon} size={17} color={kpi.color} />
               </div>
             </div>
@@ -111,7 +137,7 @@ export default function CorteCaja() {
             ) : todayOrders.map(o => (
               <div key={o.id} style={{ padding: '10px 18px', borderBottom: '1px solid #F4F4F5', display: 'flex', alignItems: 'center', gap: 12 }}>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: '#18181B', minWidth: 80 }}>{o.orderNumber}</div>
-                <div style={{ flex: 1, fontSize: 13, color: '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.customer || 'Sin nombre'}</div>
+                <div style={{ flex: 1, fontSize: 13, color: '#71717A', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{o.customer || 'Venta mostrador'}</div>
                 <span style={{ fontSize: 11, padding: '2px 7px', borderRadius: 99, background: o.paymentMethod === 'efectivo' ? '#DCFCE7' : '#DBEAFE', color: o.paymentMethod === 'efectivo' ? '#16A34A' : '#2563EB', fontWeight: 600 }}>
                   {o.paymentMethod === 'efectivo' ? 'Efectivo' : 'Tarjeta'}
                 </span>
@@ -130,16 +156,24 @@ export default function CorteCaja() {
           <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 16, color: '#18181B', marginBottom: 20 }}>Realizar corte</div>
 
           <div style={{ display: 'flex', flexDirection: 'column', gap: 12, marginBottom: 20 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#F7F7F8', borderRadius: 9 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px 14px', background: '#F7F7F8', borderRadius: 9, gap: 10 }}>
               <span style={{ fontSize: 13, color: '#71717A' }}>Fondo inicial (ajustable hoy)</span>
-              <input
-                type="number"
-                value={initialFloat}
-                onChange={e => setInitialFloat(Number(e.target.value) || 0)}
-                style={{ width: 100, padding: '4px 8px', textAlign: 'right', borderRadius: 6, border: '1.5px solid #E4E4E7', fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700, color: '#18181B', outline: 'none' }}
-                onFocus={e => (e.currentTarget.style.borderColor = '#DC2626')}
-                onBlur={e => (e.currentTarget.style.borderColor = '#E4E4E7')}
-              />
+              {canEditFloat ? (
+                <input
+                  type="number"
+                  value={initialFloat}
+                  onChange={e => setInitialFloat(Number(e.target.value) || 0)}
+                  style={{ width: 100, padding: '4px 8px', textAlign: 'right', borderRadius: 6, border: '1.5px solid #E4E4E7', fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700, color: '#18181B', outline: 'none' }}
+                  onFocus={e => (e.currentTarget.style.borderColor = '#DC2626')}
+                  onBlur={e => (e.currentTarget.style.borderColor = '#E4E4E7')}
+                />
+              ) : (
+                <button onClick={() => { setPinVal(''); setPinError(''); setShowPIN(true) }}
+                  style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '5px 10px', background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 7, cursor: 'pointer', fontFamily: 'JetBrains Mono, monospace', fontSize: 14, fontWeight: 700, color: '#18181B' }}
+                  title="Requiere autorización del gerente en turno">
+                  ${initialFloat.toLocaleString()} <Icon name="lock" size={12} color="#A1A1AA" />
+                </button>
+              )}
             </div>
             {[
               { label: 'Ventas en efectivo', value: `$${cashTotal.toLocaleString()}` },
@@ -173,6 +207,52 @@ export default function CorteCaja() {
           </button>
         </div>
       </div>
+
+      {/* Manager PIN modal — autoriza modificar el fondo inicial */}
+      {showPIN && (
+        <div className="overlay anim-fade">
+          <div className="anim-scale" style={{ background: '#FFFFFF', borderRadius: 20, padding: 28, width: 320, textAlign: 'center', boxShadow: '0 24px 64px rgba(0,0,0,0.15)' }}>
+            <div style={{ marginBottom: 16 }}>
+              <div style={{ width: 52, height: 52, background: '#FEF2F2', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+                <Icon name="lock" size={24} color="#DC2626" />
+              </div>
+              <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 18, color: '#18181B' }}>PIN Gerente</div>
+              <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 4 }}>Autorizar cambio de fondo inicial</div>
+            </div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 16 }}>
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} style={{
+                  width: 14, height: 14, borderRadius: '50%',
+                  background: i < pin.length ? '#DC2626' : '#E4E4E7',
+                  border: `2px solid ${i < pin.length ? '#DC2626' : '#D4D4D8'}`,
+                  transition: 'all 0.15s',
+                }} />
+              ))}
+            </div>
+            {pinError && <div style={{ fontSize: 12, color: '#DC2626', marginBottom: 10, fontWeight: 600 }}>{pinError}</div>}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 10 }}>
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+                <button key={d} onClick={() => handlePINDigit(d)}
+                  style={{ padding: '12px', fontSize: 18, fontFamily: 'Cooper Black, serif', background: '#F7F7F8', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 10, cursor: 'pointer' }}
+                >{d}</button>
+              ))}
+              <button onClick={() => { setShowPIN(false); setPinVal(''); setPinError('') }}
+                style={{ padding: '12px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="x" size={16} color="#DC2626" />
+              </button>
+              <button onClick={() => handlePINDigit('0')}
+                style={{ padding: '12px', fontSize: 18, fontFamily: 'Cooper Black, serif', background: '#F7F7F8', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 10, cursor: 'pointer' }}>0</button>
+              <button onClick={() => setPinVal(p => p.slice(0, -1))}
+                style={{ padding: '12px', background: '#F7F7F8', border: '1px solid #E4E4E7', borderRadius: 10, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="chevronLeft" size={18} color="#71717A" />
+              </button>
+            </div>
+            <div style={{ fontSize: 11, color: '#A1A1AA' }}>PIN de gerente en turno (o admin)</div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

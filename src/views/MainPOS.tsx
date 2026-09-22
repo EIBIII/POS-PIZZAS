@@ -150,7 +150,7 @@ export default function MainPOS() {
                   return (
                     <div key={order.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 10 }}>
                       <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: '#18181B', minWidth: 70 }}>{order.orderNumber}</div>
-                      <div style={{ flex: 1, fontSize: 13, color: '#3F3F46' }}>{order.customer || 'Sin nombre'}</div>
+                      <div style={{ flex: 1, fontSize: 13, color: '#3F3F46' }}>{order.customer || 'Venta mostrador'}</div>
                       <div style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600, background: `${color}12`, color, textTransform: 'capitalize' }}>
                         {order.status}
                       </div>

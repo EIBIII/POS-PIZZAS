@@ -99,6 +99,7 @@ export interface Ingredient {
   customPrice?: number
   provider: string
   expiry?: string
+  icon?: string
   categoryId: string
 }
 

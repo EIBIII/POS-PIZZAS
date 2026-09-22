@@ -2,21 +2,17 @@ import { useState } from 'react'
 import { useApp } from '../context'
 import Icon from '../components/Icon'
 import Ticket from '../components/Ticket'
-
-const CATEGORY_ICONS: Record<string, string> = {
-  cat3: 'drink',
-  cat4: 'bag',
-  cat2: 'package',
-  cat1: 'tag',
-}
+import { CATEGORY_ICONS, getIngredientIcon } from '../productIcon'
 
 export default function Extras() {
   const { ingredients, ingredientCategories, addTicketItem, sidebarOpen, setSidebarOpen } = useApp()
-  const [activeCat, setActiveCat] = useState<string | null>(null)
+  const [activeCat, setActiveCat] = useState<string>('todos')
 
   const nonIngredientCats = ingredientCategories.filter(c => c.id !== 'cat1')
-  const activeCatId = activeCat ?? nonIngredientCats[0]?.id ?? null
-  const filtered = ingredients.filter(i => i.categoryId === activeCatId && i.stock > 0)
+  const filtered = ingredients.filter(i =>
+    nonIngredientCats.some(c => c.id === i.categoryId) && i.stock > 0 &&
+    (activeCat === 'todos' || i.categoryId === activeCat)
+  )
 
   function addExtra(ing: typeof ingredients[0]) {
     addTicketItem({
@@ -44,9 +40,21 @@ export default function Extras() {
         </div>
 
         {/* Category tabs */}
-        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '0 24px', display: 'flex', gap: 2, flexShrink: 0 }}>
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '0 24px', display: 'flex', gap: 2, flexShrink: 0, overflowX: 'auto' }}>
+          <button onClick={() => setActiveCat('todos')}
+            style={{
+              padding: '12px 18px', fontSize: 13.5, fontWeight: 600,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: activeCat === 'todos' ? '#DC2626' : '#A1A1AA',
+              borderBottom: `3px solid ${activeCat === 'todos' ? '#DC2626' : 'transparent'}`,
+              display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+            }}
+          >
+            <Icon name="shoppingBag" size={14} color={activeCat === 'todos' ? '#DC2626' : '#A1A1AA'} />
+            Todos
+          </button>
           {nonIngredientCats.map(cat => {
-            const active = activeCatId === cat.id
+            const active = activeCat === cat.id
             return (
               <button key={cat.id} onClick={() => setActiveCat(cat.id)}
                 style={{
@@ -54,8 +62,7 @@ export default function Extras() {
                   background: 'none', border: 'none', cursor: 'pointer',
                   color: active ? cat.color : '#A1A1AA',
                   borderBottom: `3px solid ${active ? cat.color : 'transparent'}`,
-                  display: 'flex', alignItems: 'center', gap: 7,
-                  transition: 'all 0.12s',
+                  display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
                 }}
               >
                 <Icon name={CATEGORY_ICONS[cat.id] || 'tag'} size={14} color={active ? cat.color : '#A1A1AA'} />
@@ -89,6 +96,7 @@ export default function Extras() {
 
 function ExtraCard({ ingredient, onAdd }: { ingredient: any; onAdd: () => void }) {
   const [hover, setHover] = useState(false)
+  const icon = getIngredientIcon(ingredient)
   return (
     <button
       onClick={onAdd}
@@ -110,7 +118,7 @@ function ExtraCard({ ingredient, onAdd }: { ingredient: any; onAdd: () => void }
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         transition: 'background 0.14s',
       }}>
-        <Icon name="drink" size={24} color={hover ? '#DC2626' : '#71717A'} />
+        <Icon name={icon} size={24} color={hover ? '#DC2626' : '#71717A'} />
       </div>
       <div>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: '#18181B', textAlign: 'center', lineHeight: 1.2 }}>{ingredient.name}</div>
