@@ -5,8 +5,7 @@ import Icon from '../components/Icon'
 const SLICE_PRICE = 25
 
 export default function MainPOS() {
-  const { slices, setSlices, addTicketItem, orders, setView, setSidebarOpen, sidebarOpen } = useApp()
-
+  const { slices, setSlices, addTicketItem, orders, setView, setSidebarOpen, sidebarOpen, loadOrderIntoTicket } = useApp()
   const activeOrders = orders.filter(o => !['entregado', 'cancelado'].includes(o.status))
 
   function addSlicesToTicket() {
@@ -144,13 +143,22 @@ export default function MainPOS() {
                 Pedidos activos
               </div>
               <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                {activeOrders.slice(0, 5).map(order => {
+                                {activeOrders.slice(0, 5).map(order => {
                   const STATUS = { nuevo: '#2563EB', confirmado: '#D97706', preparando: '#D97706', cocinando: '#D97706', listo: '#16A34A' } as Record<string,string>
                   const color = STATUS[order.status] || '#A1A1AA'
+                  const pending = order.paymentStatus === 'pendiente'
                   return (
-                    <div key={order.id} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 10 }}>
+                    <div key={order.id}
+                      onClick={pending ? () => loadOrderIntoTicket(order) : undefined}
+                      title={pending ? 'Cobrar este pedido' : undefined}
+                      style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '10px 16px', background: '#FFFFFF', border: `1px solid ${pending ? '#FDE68A' : '#E4E4E7'}`, borderRadius: 10, cursor: pending ? 'pointer' : 'default' }}>
                       <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12, fontWeight: 700, color: '#18181B', minWidth: 70 }}>{order.orderNumber}</div>
                       <div style={{ flex: 1, fontSize: 13, color: '#3F3F46' }}>{order.customer || 'Venta mostrador'}</div>
+                      {pending && (
+                        <div style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600, background: '#FFFBEB', color: '#D97706' }}>
+                          Pendiente de pago
+                        </div>
+                      )}
                       <div style={{ padding: '2px 8px', borderRadius: 99, fontSize: 10, fontWeight: 600, background: `${color}12`, color, textTransform: 'capitalize' }}>
                         {order.status}
                       </div>
