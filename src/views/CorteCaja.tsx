@@ -5,7 +5,7 @@ import Icon from '../components/Icon'
 const MANAGER_ROLES = ['super_admin', 'admin', 'gerente']
 
 export default function CorteCaja() {
-  const { orders, currentUser, settings, users, addAudit } = useApp()
+  const { orders, currentUser, settings, users, addAudit, addCashRegister } = useApp()
   const [actualAmount, setActualAmount] = useState<number | ''>('')
   const [cut, setCut] = useState(false)
   const [cutData, setCutData] = useState<{ expected: number; actual: number; diff: number; initialFloat: number } | null>(null)
@@ -49,6 +49,21 @@ export default function CorteCaja() {
     const expected = cashTotal + initialFloat
     setCutData({ expected, actual, diff: actual - expected, initialFloat })
     setCut(true)
+    addCashRegister({
+      id: `cr${Date.now()}`,
+      openedBy: currentUser?.name || '',
+      openedAt: today,
+      closedAt: new Date(),
+      initialAmount: initialFloat,
+      expectedAmount: expected,
+      actualAmount: actual,
+      difference: actual - expected,
+      cashSales: cashTotal,
+      cardSales: cardTotal,
+      withdrawals: 0,
+      status: 'closed',
+    })
+    addAudit({ action: 'Corte de caja realizado', module: 'Corte de Caja', detail: `Esperado: $${expected} · Real: $${actual} · Diferencia: $${actual - expected}`, user: currentUser?.name || '' })
   }
 
   function fmtMoney(n: number) {

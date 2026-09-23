@@ -11,7 +11,7 @@ const PAY_STATUS = {
 }
 
 export default function Ticket() {
-  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, updateOrder, orders, generateOrderNumber, currentUser, recalledOrderId, consumption, setConsumption, deliveryAddress, setDeliveryAddress, deliveryPhone, setDeliveryPhone } = useApp()
+  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, updateOrder, orders, generateOrderNumber, currentUser, recalledOrderId, consumption, setConsumption, deliveryAddress, setDeliveryAddress, deliveryPhone, setDeliveryPhone, sidebarOpen } = useApp()
   const [payStatus, setPayStatus] = useState<keyof typeof PAY_STATUS>('pendiente')
   const [payMethod, setPayMethod] = useState<'efectivo' | 'tarjeta'>('efectivo')
   const [showConfirm, setShowConfirm] = useState(false)
@@ -72,11 +72,12 @@ export default function Ticket() {
 
   return (
     <div style={{
-      width: 288, minWidth: 288,
+      width: sidebarOpen ? 288 : 340, minWidth: sidebarOpen ? 288 : 340,
       background: '#F7F7F8',
       borderLeft: '1px solid #E4E4E7',
       display: 'flex', flexDirection: 'column',
       height: '100vh', position: 'sticky', top: 0,
+      transition: 'width 0.15s, min-width 0.15s',
     }}>
       {/* Header */}
       <div style={{ padding: '14px 16px', borderBottom: '1px solid #E4E4E7', background: '#FFFFFF' }}>
@@ -145,7 +146,7 @@ export default function Ticket() {
       <div style={{ padding: '8px 14px', background: '#F7F7F8', borderBottom: '1px solid #E4E4E7' }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: '#A1A1AA', letterSpacing: '0.06em', marginBottom: 5 }}>CONSUMO</div>
         <div style={{ display: 'flex', gap: 4 }}>
-          {([['local', 'Ahí', 'home'], ['llevar', 'Llevar', 'shoppingBag'], ['delivery', 'Delivery', 'bag']] as const).map(([id, label, icon]) => (
+          {([['local', 'Local', 'home'], ['llevar', 'Llevar', 'shoppingBag'], ['delivery', 'Delivery', 'bag']] as const).map(([id, label, icon]) => (
             <button key={id} onClick={() => setConsumption(id)}
               style={{
                 flex: 1, padding: '7px 2px', fontSize: 11.5, fontWeight: 600,
@@ -214,16 +215,19 @@ export default function Ticket() {
       <div style={{ padding: '8px 14px', background: '#F7F7F8', borderBottom: '1px solid #E4E4E7' }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: '#A1A1AA', letterSpacing: '0.06em', marginBottom: 5 }}>ESTADO DE PAGO</div>
         <div style={{ display: 'flex', gap: 4 }}>
-          {(Object.entries(PAY_STATUS) as [keyof typeof PAY_STATUS, typeof PAY_STATUS[keyof typeof PAY_STATUS]][]).map(([k, v]) => (
-            <button key={k} onClick={() => setPayStatus(k)}
-              style={{
-                flex: 1, padding: '4px 2px', fontSize: 9, fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em',
-                borderRadius: 6, cursor: 'pointer', border: `1px solid ${payStatus === k ? v.border : '#E4E4E7'}`,
-                background: payStatus === k ? v.bg : '#FFFFFF', color: payStatus === k ? v.color : '#A1A1AA',
-                transition: 'all 0.12s',
-              }}
-            >{v.label}</button>
-          ))}
+          {(['pendiente', 'pagado'] as const).map(k => {
+            const v = PAY_STATUS[k]
+            return (
+              <button key={k} onClick={() => { setPayStatus(k); if (k === 'pendiente') setCashReceived('') }}
+                style={{
+                  flex: 1, padding: '6px 2px', fontSize: 11, fontWeight: 600,
+                  borderRadius: 6, cursor: 'pointer', border: `1px solid ${payStatus === k ? v.border : '#E4E4E7'}`,
+                  background: payStatus === k ? v.bg : '#FFFFFF', color: payStatus === k ? v.color : '#A1A1AA',
+                  transition: 'all 0.12s',
+                }}
+              >{v.label}</button>
+            )
+          })}
         </div>
       </div>
 
@@ -248,10 +252,23 @@ export default function Ticket() {
         </div>
         {payMethod === 'efectivo' && (
           <div style={{ marginTop: 8 }}>
-            <input type="number" placeholder="Efectivo recibido" value={cashReceived} onChange={e => setCashReceived(e.target.value)}
-              style={{ width: '100%', padding: '7px 10px', fontSize: 13, background: '#FFFFFF', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 7, fontFamily: 'JetBrains Mono, monospace' }}
+            <input type="number" placeholder="Efectivo recibido" value={cashReceived} disabled={payStatus === 'pendiente'}
+              onChange={e => setCashReceived(e.target.value)}
+              style={{
+                width: '100%', padding: '7px 10px', fontSize: 13, fontFamily: 'JetBrains Mono, monospace',
+                background: payStatus === 'pendiente' ? '#F4F4F5' : '#FFFFFF',
+                color: payStatus === 'pendiente' ? '#A1A1AA' : '#18181B',
+                border: '1px solid #E4E4E7', borderRadius: 7,
+                cursor: payStatus === 'pendiente' ? 'not-allowed' : 'text',
+                boxSizing: 'border-box',
+              }}
             />
-            {cashReceived && parseFloat(cashReceived) >= total && (
+            {payStatus === 'pendiente' && (
+              <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 5 }}>
+                Se captura cuando venga a pagar (estado Pagado).
+              </div>
+            )}
+            {payStatus === 'pagado' && cashReceived && parseFloat(cashReceived) >= total && (
               <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 12.5, color: '#16A34A', fontWeight: 600, marginTop: 5 }}>
                 Cambio: ${change.toFixed(2)}
               </div>
@@ -281,7 +298,11 @@ export default function Ticket() {
           onMouseEnter={e => { if (canCharge) (e.currentTarget as HTMLElement).style.background = '#B91C1C' }}
           onMouseLeave={e => { if (canCharge) (e.currentTarget as HTMLElement).style.background = '#DC2626' }}
         >
-          {recalledOrder ? `Cobrar pedido ${recalledOrder.orderNumber}` : `Cobrar $${total}`}
+          {recalledOrder
+            ? `Cobrar pedido ${recalledOrder.orderNumber}`
+            : payStatus === 'pendiente'
+              ? `Guardar pedido pendiente · $${total}`
+              : `Cobrar $${total}`}
         </button>
       </div>
 

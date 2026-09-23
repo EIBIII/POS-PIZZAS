@@ -7,7 +7,7 @@ import type {
 export const DEFAULT_SETTINGS: BusinessSettings = {
   name: 'PIZZAIAS',
   address: 'Av. Insurgentes 420, CDMX',
-  phone: '55 1234 5678',
+  phones: ['55 1234 5678'],
   rfc: 'PIZ123456ABC',
   tax: 16,
   logoUrl: '',

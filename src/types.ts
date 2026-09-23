@@ -1,7 +1,7 @@
 export interface BusinessSettings {
   name: string
   address: string
-  phone: string
+  phones: string[]
   rfc: string
   tax: number
   logoUrl: string
@@ -170,6 +170,8 @@ export interface Order {
   updatedAt: Date
   cancelReason?: string
   cancelledBy?: string
+  refundReason?: string
+  refundedBy?: string
 }
 
 export interface AuditEntry {

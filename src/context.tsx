@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
-import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory, Role, BusinessSettings, ConsumptionType } from './types'
+import type { User, Order, Extra, Product, Ingredient, TicketItem, AuditEntry, Promotion, IngredientCategory, Role, BusinessSettings, ConsumptionType, CashRegister } from './types'
 import { USERS, ORDERS, EXTRAS, PRODUCTS, INGREDIENTS, AUDIT_LOG, PROMOTIONS, INGREDIENT_CATEGORIES, ROLES, DEFAULT_SETTINGS, generateOrderNumber } from './data'
 
 export type View =
@@ -41,6 +41,8 @@ interface AppContextType {
   hasPermission: (permKey: string) => boolean
   settings: BusinessSettings
   setSettings: (s: BusinessSettings) => void
+  cashRegisters: CashRegister[]
+  addCashRegister: (cr: CashRegister) => void
   orders: Order[]
   addOrder: (o: Order) => void
   updateOrder: (id: string, patch: Partial<Order>) => void
@@ -75,6 +77,11 @@ export function AppProvider({ children }: { children: ReactNode }) {
   const [users, setUsers] = useState<User[]>(USERS)
   const [roles, setRoles] = useState<Role[]>(ROLES)
   const [settings, setSettings] = useState<BusinessSettings>(DEFAULT_SETTINGS)
+  const [cashRegisters, setCashRegisters] = useState<CashRegister[]>([])
+
+  function addCashRegister(cr: CashRegister) {
+    setCashRegisters(prev => [...prev, cr])
+  }
   const [orders, setOrders] = useState<Order[]>(ORDERS)
   const [extras, setExtras] = useState<Extra[]>(EXTRAS)
   const [products, setProducts] = useState<Product[]>(PRODUCTS)
@@ -161,7 +168,7 @@ export function AppProvider({ children }: { children: ReactNode }) {
       slices, setSlices,
       ticketItems, addTicketItem, removeTicketItem, updateItemQty, clearTicket,
       activePromo, setActivePromo, consumption, setConsumption, deliveryAddress, setDeliveryAddress, deliveryPhone, setDeliveryPhone, recalledOrderId, loadOrderIntoTicket,
-      users, setUsers, roles, setRoles, hasPermission, settings, setSettings, orders, addOrder, updateOrder,
+      users, setUsers, roles, setRoles, hasPermission, settings, setSettings, cashRegisters, addCashRegister, orders, addOrder, updateOrder,
       extras, setExtras, products, setProducts,
       ingredients, setIngredients, ingredientCategories, setIngredientCategories,
       auditLog, addAudit,

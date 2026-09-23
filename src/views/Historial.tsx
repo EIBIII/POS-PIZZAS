@@ -23,20 +23,28 @@ const PAY_COLORS: Record<string, [string, string]> = {
 const MANAGER_ROLES = ['super_admin', 'admin', 'gerente']
 
 export default function HistorialView() {
-  const { orders, updateOrder, currentUser, users, addAudit } = useApp()
+  const { orders, updateOrder, currentUser, users, addAudit, cashRegisters } = useApp()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPay, setFilterPay] = useState('all')
   const [filterDate, setFilterDate] = useState('all')
   const [selected, setSelected] = useState<Order | null>(null)
   const [cancelReason, setCancelReason] = useState('')
+  const [refundReason, setRefundReason] = useState('')
   const [showCancel, setShowCancel] = useState(false)
+  const [showRefund, setShowRefund] = useState(false)
   const [showPIN, setShowPIN] = useState(false)
   const [pinAction, setPinAction] = useState<'cancel' | 'refund' | null>(null)
   const [pin, setPinVal] = useState('')
   const [pinError, setPinError] = useState('')
 
   const isManager = MANAGER_ROLES.includes(currentUser?.role || '')
+
+  const today0 = new Date(); today0.setHours(0, 0, 0, 0)
+  const isToday = (d: Date) => d >= today0
+  // El turno de hoy ya está cerrado si existe un corte de caja cerrado hecho hoy.
+  const todayShiftClosed = cashRegisters.some(cr => cr.status === 'closed' && cr.closedAt && new Date(cr.closedAt) >= today0)
+  const canRefund = (o: Order) => o.paymentStatus === 'pagado' && isToday(o.createdAt) && !todayShiftClosed
 
   const visible = orders.filter(o => {
     if (!isManager && o.createdBy !== currentUser?.id) return false
@@ -55,7 +63,7 @@ export default function HistorialView() {
   function requestManagerAction(action: 'cancel' | 'refund') {
     if (isManager) {
       if (action === 'cancel') setShowCancel(true)
-      else handleRefund()
+      else setShowRefund(true)
       return
     }
     setPinAction(action)
@@ -73,7 +81,7 @@ export default function HistorialView() {
         setShowPIN(false)
         addAudit({ action: 'PIN gerente validado', module: 'Historial', detail: `${manager.name} autorizó acción en ${selected?.orderNumber}`, user: currentUser?.name || '' })
         if (pinAction === 'cancel') setShowCancel(true)
-        else handleRefund()
+        else setShowRefund(true)
       } else {
         setPinError('PIN incorrecto')
         setTimeout(() => { setPinVal(''); setPinError('') }, 1200)
@@ -92,9 +100,11 @@ export default function HistorialView() {
 
   function handleRefund() {
     if (!selected) return
-    updateOrder(selected.id, { paymentStatus: 'reembolsado' })
-    addAudit({ action: 'Reembolsar pedido', module: 'Historial', detail: `${selected.orderNumber} — $${selected.total}`, user: currentUser?.name || '' })
+    updateOrder(selected.id, { paymentStatus: 'reembolsado', refundReason, refundedBy: currentUser?.name })
+    addAudit({ action: 'Reembolsar pedido', module: 'Historial', detail: `${selected.orderNumber} — $${selected.total} — ${refundReason}`, user: currentUser?.name || '' })
+    setShowRefund(false)
     setSelected(null)
+    setRefundReason('')
   }
 
   const getUserName = (userId: string) => users.find(u => u.id === userId)?.name || userId
@@ -184,20 +194,20 @@ export default function HistorialView() {
                     {o.createdAt.toLocaleDateString('es-MX', { day: '2-digit', month: '2-digit' })} {o.createdAt.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' })}
                   </td>
                   <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
-                    {o.status !== 'cancelado' && o.status !== 'entregado' && (
-                      <div style={{ display: 'flex', gap: 4 }}>
+                    <div style={{ display: 'flex', gap: 4 }}>
+                      {o.status !== 'cancelado' && o.status !== 'entregado' && (
                         <button onClick={() => { setSelected(o); requestManagerAction('cancel') }}
                           style={{ padding: '3px 8px', fontSize: 10.5, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 5, cursor: 'pointer', fontWeight: 600 }}>
                           Cancelar
                         </button>
-                        {o.paymentStatus === 'pagado' && (
-                          <button onClick={() => { setSelected(o); requestManagerAction('refund') }}
-                            style={{ padding: '3px 8px', fontSize: 10.5, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 5, cursor: 'pointer', fontWeight: 600 }}>
-                            Reembolso
-                          </button>
-                        )}
-                      </div>
-                    )}
+                      )}
+                      {canRefund(o) && (
+                        <button onClick={() => { setSelected(o); requestManagerAction('refund') }}
+                          style={{ padding: '3px 8px', fontSize: 10.5, background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 5, cursor: 'pointer', fontWeight: 600 }}>
+                          Reembolso
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               )
@@ -210,7 +220,7 @@ export default function HistorialView() {
       </div>
 
       {/* Order detail side panel */}
-      {selected && !showCancel && !showPIN && (
+      {selected && !showCancel && !showRefund && !showPIN && (
         <div className="anim-slide-right" style={{
           position: 'fixed', right: 0, top: 0, bottom: 0, width: 340,
           background: '#FFFFFF', borderLeft: '1px solid #E4E4E7', padding: 20, overflowY: 'auto', zIndex: 50,
@@ -260,6 +270,21 @@ export default function HistorialView() {
               <div style={{ fontSize: 12.5, color: '#3F3F46' }}>{selected.cancelReason}</div>
               <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 4 }}>Por: {selected.cancelledBy}</div>
             </div>
+          )}
+
+          {selected.refundReason && (
+            <div style={{ marginTop: 12, padding: 12, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#2563EB', marginBottom: 4 }}>REEMBOLSADO</div>
+              <div style={{ fontSize: 12.5, color: '#3F3F46' }}>{selected.refundReason}</div>
+              <div style={{ fontSize: 11, color: '#A1A1AA', marginTop: 4 }}>Por: {selected.refundedBy}</div>
+            </div>
+          )}
+
+          {canRefund(selected) && (
+            <button onClick={() => requestManagerAction('refund')}
+              style={{ marginTop: 12, width: '100%', padding: '9px', background: '#EFF6FF', color: '#2563EB', border: '1px solid #BFDBFE', borderRadius: 9, cursor: 'pointer', fontSize: 12.5, fontWeight: 700 }}>
+              Reembolsar pedido
+            </button>
           )}
 
           {selected.status !== 'cancelado' && selected.status !== 'entregado' && isManager && (
@@ -343,6 +368,26 @@ export default function HistorialView() {
               <button onClick={() => setShowCancel(false)} style={btnSec}>Volver</button>
               <button onClick={handleCancel} disabled={!cancelReason}
                 style={{ ...btnPri, opacity: cancelReason ? 1 : 0.5 }}>Confirmar cancelación</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Refund modal */}
+      {showRefund && selected && (
+        <div className="overlay anim-fade">
+          <div className="anim-scale" style={{ background: '#FFFFFF', borderRadius: 16, padding: 24, width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.15)' }}>
+            <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 18, color: '#18181B', marginBottom: 4 }}>Reembolsar {selected.orderNumber}</div>
+            <div style={{ fontSize: 12.5, color: '#71717A', marginBottom: 16 }}>Quedará registrado en auditoría</div>
+            <textarea value={refundReason} onChange={e => setRefundReason(e.target.value)}
+              placeholder="Motivo del reembolso..."
+              rows={3}
+              style={{ width: '100%', padding: '10px 12px', background: '#F7F7F8', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 9, resize: 'none', fontSize: 13 }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button onClick={() => setShowRefund(false)} style={btnSec}>Volver</button>
+              <button onClick={handleRefund} disabled={!refundReason}
+                style={{ ...btnPri, background: '#2563EB', opacity: refundReason ? 1 : 0.5 }}>Confirmar reembolso</button>
             </div>
           </div>
         </div>

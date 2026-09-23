@@ -48,6 +48,8 @@ export default function Icon({ name, size = 18, color = 'currentColor', strokeWi
     bag: <svg {...props}><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 01-8 0"/></svg>,
     plate: <svg {...props}><path d="M18.75 3.75H5.25a1.5 1.5 0 000 3h13.5a1.5 1.5 0 000-3z"/><path d="M3 9h18v1.5a9 9 0 01-9 9 9 9 0 01-9-9V9z"/></svg>,
     napkin: <svg {...props}><rect x="4" y="4" width="16" height="16" rx="2"/><line x1="4" y1="10" x2="20" y2="10"/></svg>,
+    soda: <svg {...props}><rect x="6" y="3" width="12" height="18" rx="2.2"/><ellipse cx="12" cy="3" rx="6" ry="1.3"/><line x1="9.5" y1="1" x2="9.5" y2="3"/><line x1="6" y1="9" x2="18" y2="9"/></svg>,
+    cup: <svg {...props}><path d="M6 8h12l-1.3 11.2A2 2 0 0114.7 21H9.3a2 2 0 01-2-1.8L6 8z"/><path d="M4.5 8h15"/><line x1="14" y1="2" x2="12" y2="8"/></svg>,
     juice: <svg {...props}><path d="M8 2h8l1 6H7L8 2z"/><path d="M7 8v12a1 1 0 001 1h8a1 1 0 001-1V8"/><line x1="10" y1="14" x2="14" y2="14"/></svg>,
     beer: <svg {...props}><path d="M17 11h1a3 3 0 010 6h-1"/><path d="M9 11l.4-2h9.2l1 6H9z"/><path d="M5 11l1 10h6l1-10"/></svg>,
     printer: <svg {...props}><polyline points="6,9 6,2 18,2 18,9"/><path d="M6 18H4a2 2 0 01-2-2v-5a2 2 0 012-2h16a2 2 0 012 2v5a2 2 0 01-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,

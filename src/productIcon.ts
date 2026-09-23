@@ -9,7 +9,7 @@ export const CATEGORY_ICONS: Record<string, string> = {
 // Opciones disponibles para que el usuario asigne un ícono específico a un
 // producto/ingrediente desde Inventario, y así identificarlo mejor en Extras.
 export const EXTRA_ICON_OPTIONS = [
-  'drink', 'beer', 'juice', 'water', 'pizza', 'plate', 'napkin', 'bag', 'shoppingBag', 'package', 'tag',
+  'soda', 'drink', 'cup', 'beer', 'juice', 'water', 'pizza', 'plate', 'napkin', 'bag', 'shoppingBag', 'package', 'tag',
 ]
 
 // Resuelve el ícono a mostrar para un ingrediente: el asignado manualmente,
@@ -22,6 +22,7 @@ export function getIngredientIcon(ing: { icon?: string; categoryId: string; name
     if (n.includes('agua')) return 'water'
     if (n.includes('jugo')) return 'juice'
     if (n.includes('cerveza') || n.includes('beer')) return 'beer'
+    if (n.includes('coca') || n.includes('pepsi') || n.includes('fresca') || n.includes('sprite') || n.includes('refresco') || n.includes('soda')) return 'soda'
     return 'drink'
   }
   return CATEGORY_ICONS[ing.categoryId] || 'tag'

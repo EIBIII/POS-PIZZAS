@@ -19,7 +19,7 @@ function getETA(order: Order): string {
 export default function ColaPView() {
   const { orders, updateOrder, currentUser, products, ingredients } = useApp()
   const [activeTab, setActiveTab] = useState('espera')
-  const [detailOrder, setDetailOrder] = useState<Order | null>(null)
+  const [expandedId, setExpandedId] = useState<string | null>(null)
 
   const isKitchen = currentUser?.role === 'cocinero'
 
@@ -131,9 +131,9 @@ export default function ColaPView() {
                         <div style={{ fontSize: 10.5, color: '#A1A1AA', marginTop: 2 }}>Hace {elapsed}m</div>
                       </div>
                       {order.items.some(i => i.type === 'pizza') && (
-                        <button onClick={() => setDetailOrder(order)} title="Ver ingredientes y gramos"
-                          style={{ width: 24, height: 24, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                          <Icon name="info" size={13} color="#2563EB" />
+                        <button onClick={() => setExpandedId(expandedId === order.id ? null : order.id)} title="Ver ingredientes y gramos"
+                          style={{ width: 24, height: 24, background: expandedId === order.id ? '#2563EB' : '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Icon name="info" size={13} color={expandedId === order.id ? '#fff' : '#2563EB'} />
                         </button>
                       )}
                     </div>
@@ -171,6 +171,36 @@ export default function ColaPView() {
                     </div>
                   )}
 
+                  {expandedId === order.id && (
+                    <div style={{ marginTop: 10, padding: 12, background: '#EFF6FF', border: '1px solid #BFDBFE', borderRadius: 10 }}>
+                      <div style={{ fontSize: 10.5, fontWeight: 700, color: '#2563EB', letterSpacing: '0.06em', textTransform: 'uppercase', marginBottom: 8 }}>
+                        Ingredientes y gramos
+                      </div>
+                      {getRecipe(order).map(({ item, product }, i) => (
+                        <div key={i} style={{ marginBottom: i < getRecipe(order).length - 1 ? 12 : 0 }}>
+                          <div style={{ fontSize: 12.5, fontWeight: 700, color: '#18181B', marginBottom: 6 }}>
+                            {item.name} × {item.quantity}
+                          </div>
+                          {product ? (
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+                              {product.baseIngredients.map((bi, j) => {
+                                const ing = ingredients.find(ig => ig.id === bi.ingredientId)
+                                return ing ? (
+                                  <div key={j} style={{ display: 'flex', justifyContent: 'space-between', fontSize: 12, padding: '4px 8px', background: '#FFFFFF', borderRadius: 6 }}>
+                                    <span style={{ color: '#3F3F46' }}>{ing.name}</span>
+                                    <span style={{ fontFamily: 'JetBrains Mono, monospace', fontWeight: 700, color: '#2563EB' }}>{bi.grams * item.quantity}g</span>
+                                  </div>
+                                ) : null
+                              })}
+                            </div>
+                          ) : (
+                            <div style={{ fontSize: 11.5, color: '#A1A1AA' }}>Receta no disponible</div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+
                   <div style={{ display: 'flex', gap: 6, marginTop: 12 }}>
                     {(isKitchen || ['super_admin', 'admin', 'gerente', 'cajero', 'mesero'].includes(currentUser?.role || '')) && (
                       <button onClick={() => advanceOrder(order)}
@@ -193,65 +223,6 @@ export default function ColaPView() {
           </div>
         )}
       </div>
-
-      {/* Recipe Detail Modal */}
-      {detailOrder && (
-        <div className="overlay anim-fade" onClick={() => setDetailOrder(null)}>
-          <div className="anim-scale" style={{ background: '#FFFFFF', borderRadius: 20, padding: 28, width: 440, maxHeight: '85vh', overflowY: 'auto', boxShadow: '0 24px 64px rgba(0,0,0,0.15)' }} onClick={e => e.stopPropagation()}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-              <div>
-                <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 18, color: '#18181B' }}>Receta — {detailOrder.orderNumber}</div>
-                <div style={{ fontSize: 12.5, color: '#71717A', marginTop: 2 }}>{detailOrder.customer || 'Venta mostrador'}</div>
-              </div>
-              <button onClick={() => setDetailOrder(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#A1A1AA', display: 'flex' }}>
-                <Icon name="x" size={20} />
-              </button>
-            </div>
-
-            {getRecipe(detailOrder).map(({ item, product }, i) => (
-              <div key={i} style={{ marginBottom: 20 }}>
-                <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 15, color: '#18181B', marginBottom: 10, paddingBottom: 8, borderBottom: '2px solid #F4F4F5' }}>
-                  {item.name} × {item.quantity}
-                </div>
-                {item.details && (
-                  <div style={{ fontSize: 12, color: '#D97706', marginBottom: 10, padding: '6px 10px', background: '#FFFBEB', borderRadius: 8 }}>
-                    {item.details}
-                  </div>
-                )}
-                {product ? (
-                  <div>
-                    <div style={{ fontSize: 10.5, fontWeight: 700, color: '#A1A1AA', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 8 }}>Ingredientes base</div>
-                    {product.baseIngredients.map((bi, j) => {
-                      const ing = ingredients.find(i => i.id === bi.ingredientId)
-                      return ing ? (
-                        <div key={j} style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 12px', marginBottom: 4, background: '#F7F7F8', border: '1px solid #E4E4E7', borderRadius: 8 }}>
-                          <span style={{ fontSize: 13, color: '#18181B', fontWeight: 500 }}>{ing.name}</span>
-                          <div style={{ textAlign: 'right' }}>
-                            <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 13, fontWeight: 700, color: '#DC2626' }}>
-                              {bi.grams * item.quantity}g
-                            </span>
-                            {item.quantity > 1 && (
-                              <div style={{ fontSize: 10, color: '#A1A1AA' }}>{bi.grams}g × {item.quantity}</div>
-                            )}
-                          </div>
-                        </div>
-                      ) : null
-                    })}
-                  </div>
-                ) : (
-                  <div style={{ fontSize: 12, color: '#A1A1AA' }}>Receta no disponible</div>
-                )}
-              </div>
-            ))}
-
-            {detailOrder.notes && (
-              <div style={{ padding: '10px 14px', background: '#FFFBEB', border: '1px solid #FDE68A', borderRadius: 10, fontSize: 13, color: '#D97706' }}>
-                <strong>Obs:</strong> {detailOrder.notes}
-              </div>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   )
 }

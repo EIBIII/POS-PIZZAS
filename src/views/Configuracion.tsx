@@ -105,7 +105,33 @@ export default function Configuracion() {
                 </div>
                 <Field label="Nombre del establecimiento" value={draft.name} onChange={v => patch({ name: v })} />
                 <Field label="Dirección" value={draft.address} onChange={v => patch({ address: v })} />
-                <Field label="Teléfono" value={draft.phone} onChange={v => patch({ phone: v })} />
+                <div>
+                  <label style={{ fontSize: 12, fontWeight: 700, color: '#71717A', display: 'block', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                    Teléfonos
+                  </label>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                    {draft.phones.map((ph, i) => (
+                      <div key={i} style={{ display: 'flex', gap: 8 }}>
+                        <input value={ph} placeholder="Ej. 55 1234 5678"
+                          onChange={e => patch({ phones: draft.phones.map((p, idx) => idx === i ? e.target.value : p) })}
+                          style={{ flex: 1, padding: '10px 14px', borderRadius: 9, border: '1.5px solid #E4E4E7', fontSize: 14, outline: 'none', boxSizing: 'border-box', fontFamily: 'Inter, sans-serif' }}
+                          onFocus={e => (e.currentTarget.style.borderColor = '#DC2626')}
+                          onBlur={e => (e.currentTarget.style.borderColor = '#E4E4E7')}
+                        />
+                        {draft.phones.length > 1 && (
+                          <button onClick={() => patch({ phones: draft.phones.filter((_, idx) => idx !== i) })}
+                            style={{ width: 40, flexShrink: 0, background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                            <Icon name="trash" size={14} color="#DC2626" />
+                          </button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <button onClick={() => patch({ phones: [...draft.phones, ''] })}
+                    style={{ marginTop: 8, display: 'flex', alignItems: 'center', gap: 6, padding: '6px 12px', background: '#F7F7F8', border: '1px solid #E4E4E7', borderRadius: 8, fontSize: 12.5, fontWeight: 600, cursor: 'pointer', color: '#18181B' }}>
+                    <Icon name="plus" size={12} color="#18181B" /> Agregar teléfono
+                  </button>
+                </div>
                 <Field label="RFC" value={draft.rfc} onChange={v => patch({ rfc: v })} />
                 <Field label="IVA (%)" value={String(draft.tax)} type="number" onChange={v => patch({ tax: Number(v) })} />
               </Section>
@@ -114,13 +140,13 @@ export default function Configuracion() {
               <Section title="Caja y reportes">
                 <div>
                   <Field label="Fondo inicial de caja ($)" value={String(draft.initialFloat)} type="number" onChange={v => patch({ initialFloat: Number(v) })} />
-                  <div style={{ fontSize: 11.5, color: '#A1A1AA', marginTop: -8 }}>
+                  <div style={{ fontSize: 11.5, color: '#A1A1AA', marginTop: 6, lineHeight: 1.4 }}>
                     Monto con el que arranca la caja cada turno. Como puede variar de un día a otro, también se puede ajustar directamente desde Corte de Caja el día que aplique.
                   </div>
                 </div>
                 <div>
                   <Field label="Correo para reportes" value={draft.reportEmail} type="email" onChange={v => patch({ reportEmail: v })} />
-                  <div style={{ fontSize: 11.5, color: '#A1A1AA', marginTop: -8 }}>
+                  <div style={{ fontSize: 11.5, color: '#A1A1AA', marginTop: 6, lineHeight: 1.4 }}>
                     Dirección a la que se enviarán los reportes y métricas desde Dashboard y Reportes.
                   </div>
                 </div>
