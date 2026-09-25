@@ -5,7 +5,7 @@ import Icon from '../components/Icon'
 const SLICE_PRICE = 25
 
 export default function MainPOS() {
-  const { slices, setSlices, addTicketItem, orders, setView, setSidebarOpen, sidebarOpen, loadOrderIntoTicket } = useApp()
+  const { slices, setSlices, addTicketItem, orders, setView, loadOrderIntoTicket } = useApp()
   const activeOrders = orders.filter(o => !['entregado', 'cancelado'].includes(o.status))
 
   function addSlicesToTicket() {
@@ -26,11 +26,6 @@ export default function MainPOS() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto', background: '#F7F7F8' }}>
         {/* Top bar */}
         <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 14, flexShrink: 0 }}>
-          {!sidebarOpen && (
-            <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#71717A', display: 'flex' }}>
-              <Icon name="menu" size={20} />
-            </button>
-          )}
           <div>
             <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 20, color: '#18181B', lineHeight: 1 }}>Punto de Venta</div>
             <div style={{ fontSize: 12, color: '#A1A1AA', marginTop: 2 }}>
@@ -73,7 +68,7 @@ export default function MainPOS() {
               </button>
 
               <div style={{ textAlign: 'center' }}>
-                <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 104, color: '#18181B', lineHeight: 1, letterSpacing: '-0.03em' }}>
+                <div className="pos-slice-number" style={{ fontFamily: 'Cooper Black, serif', fontSize: 104, color: '#18181B', lineHeight: 1, letterSpacing: '-0.03em' }}>
                   {slices}
                 </div>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 22, fontWeight: 700, color: '#DC2626', marginTop: 4 }}>
@@ -125,7 +120,7 @@ export default function MainPOS() {
           </div>
 
           {/* Big action buttons */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+          <div className="pos-action-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
             {[
               { label: 'Extras', icon: 'shoppingBag', view: 'extras', desc: 'Bebidas y complementos' },
               { label: 'Pedido', icon: 'clipboard', view: 'pedido', desc: 'Configurar pizza' },
@@ -178,14 +173,14 @@ export default function MainPOS() {
 function ActionCard({ label, icon, view, desc }: { label: string; icon: string; view: string; desc: string }) {
   const { setView } = useApp()
   return (
-    <button onClick={() => setView(view as any)}
+    <button className="pos-action-card" onClick={() => setView(view as any)}
       style={{
         height: 235, background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 16,
         cursor: 'pointer', display: 'flex', flexDirection: 'column', alignItems: 'center',
         justifyContent: 'center', gap: 14, padding: 20,
       }}
     >
-      <div style={{ width: 64, height: 64, background: '#FEF2F2', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div className="pos-action-icon" style={{ width: 64, height: 64, background: '#FEF2F2', borderRadius: 18, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <Icon name={icon} size={30} color="#DC2626" />
       </div>
       <div>

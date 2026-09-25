@@ -106,7 +106,7 @@ export default function ColaPView() {
             <div style={{ fontSize: 14, marginTop: 12 }}>No hay pedidos en esta sección</div>
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: 14, alignItems: 'start' }}>
             {tabOrders.map(order => {
               const tab = TABS.find(t => t.statuses.includes(order.status))
               const color = tab?.color || '#A1A1AA'

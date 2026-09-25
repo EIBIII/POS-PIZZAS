@@ -140,7 +140,7 @@ export default function CorteCaja() {
         ))}
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20 }}>
+      <div className="split-panel" style={{ display: 'grid', gridTemplateColumns: '1fr 380px', gap: 20 }}>
         {/* Order log */}
         <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 14, overflow: 'hidden' }}>
           <div style={{ padding: '14px 18px', borderBottom: '1px solid #E4E4E7', fontFamily: 'Cooper Black, serif', fontSize: 14, color: '#18181B' }}>

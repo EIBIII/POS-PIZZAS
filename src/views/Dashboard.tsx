@@ -106,7 +106,7 @@ export default function Dashboard() {
         <KPI label="En cocina" value={String(activeOrders)} sub="Pedidos activos" color={activeOrders > 4 ? '#DC2626' : '#D97706'} icon="chefHat" />
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
+      <div className="split-panel" style={{ display: 'grid', gridTemplateColumns: '2fr 1fr', gap: 16, marginBottom: 16 }}>
         {/* Hourly sales */}
         <Card title="Ventas por hora">
           <ResponsiveContainer width="100%" height={200}>
@@ -151,7 +151,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
         {/* Top pizzas bar */}
         <Card title="Pizzas más vendidas">
           {topPizzas.length > 0 ? (

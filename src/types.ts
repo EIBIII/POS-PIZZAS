@@ -77,7 +77,7 @@ export interface User {
 }
 
 export type PizzaSize = 'mediana' | 'grande' | 'jumbo'
-export type Division = 'completa' | 'mitad' | 'cuartos'
+export type Division = 'completa' | 'mitad' | 'cuartos' | 'tercios'
 export type OrderStatus = 'nuevo' | 'confirmado' | 'preparando' | 'cocinando' | 'listo' | 'entregado' | 'cancelado'
 export type PaymentStatus = 'pendiente' | 'pagado' | 'cancelado' | 'reembolsado'
 export type PaymentMethod = 'efectivo' | 'tarjeta'

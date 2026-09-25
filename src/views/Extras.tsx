@@ -5,7 +5,7 @@ import Ticket from '../components/Ticket'
 import { CATEGORY_ICONS, getIngredientIcon } from '../productIcon'
 
 export default function Extras() {
-  const { ingredients, ingredientCategories, addTicketItem, sidebarOpen, setSidebarOpen } = useApp()
+  const { ingredients, ingredientCategories, addTicketItem } = useApp()
   const [activeCat, setActiveCat] = useState<string>('todos')
 
   const nonIngredientCats = ingredientCategories.filter(c => c.id !== 'cat1')
@@ -30,11 +30,6 @@ export default function Extras() {
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F7F7F8', overflow: 'hidden' }}>
         {/* Header */}
         <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
-          {!sidebarOpen && (
-            <button onClick={() => setSidebarOpen(true)} style={{ background: 'none', border: 'none', cursor: 'pointer', padding: 4, color: '#71717A', display: 'flex' }}>
-              <Icon name="menu" size={20} />
-            </button>
-          )}
           <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 20, color: '#18181B' }}>Extras</div>
           <div style={{ fontSize: 12.5, color: '#A1A1AA', marginLeft: 4 }}>Bebidas y complementos</div>
         </div>

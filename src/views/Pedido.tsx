@@ -9,7 +9,7 @@ import type {
   PaymentMethod,
 } from "../types"
 
-const SIZES: { id: PizzaSize label: string }[] = [
+const SIZES: { id: PizzaSize; label: string }[] = [
   { id: "mediana", label: "Mediana" },
   { id: "grande", label: "Grande" },
   { id: "jumbo", label: "Jumbo" },
@@ -17,10 +17,11 @@ const SIZES: { id: PizzaSize label: string }[] = [
 
 const SLICE_OPTIONS = [8, 12, 16]
 
-const DIVISION_OPTIONS: { id: Division label: string parts: number }[] = [
+const DIVISION_OPTIONS: { id: Division; label: string; parts: number }[] = [
   { id: "completa", label: "Completa", parts: 1 },
   { id: "mitad", label: "½ y ½", parts: 2 },
   { id: "cuartos", label: "¾ y ¼", parts: 2 },
+  { id: "tercios", label: "⅓, ⅓ y ⅓", parts: 3 },
 ]
 
 const CONSUMPTION_OPTIONS: {
@@ -52,10 +53,12 @@ function PizzaVisual({
   division,
   flavor1Name,
   flavor2Name,
+  flavor3Name,
 }: {
   division: Division
   flavor1Name: string
   flavor2Name: string
+  flavor3Name: string
 }) {
   const r = 70
   const cx = 80,
@@ -99,18 +102,36 @@ function PizzaVisual({
               label: flavor2Name || "Sabor 2",
             },
           ]
-        : [
-            {
-              path: arcPath(0, 270),
-              color: PIZZA_COLORS[0],
-              label: flavor1Name || "Sabor 1",
-            },
-            {
-              path: arcPath(270, 360),
-              color: PIZZA_COLORS[1],
-              label: flavor2Name || "Sabor 2",
-            },
-          ]
+        : division === "tercios"
+          ? [
+              {
+                path: arcPath(0, 120),
+                color: PIZZA_COLORS[0],
+                label: flavor1Name || "Sabor 1",
+              },
+              {
+                path: arcPath(120, 240),
+                color: PIZZA_COLORS[1],
+                label: flavor2Name || "Sabor 2",
+              },
+              {
+                path: arcPath(240, 360),
+                color: PIZZA_COLORS[2],
+                label: flavor3Name || "Sabor 3",
+              },
+            ]
+          : [
+              {
+                path: arcPath(0, 270),
+                color: PIZZA_COLORS[0],
+                label: flavor1Name || "Sabor 1",
+              },
+              {
+                path: arcPath(270, 360),
+                color: PIZZA_COLORS[1],
+                label: flavor2Name || "Sabor 2",
+              },
+            ]
 
   return (
     <div style={{ position: "relative" }}>
@@ -124,7 +145,7 @@ function PizzaVisual({
           <path key={i} d={s.path} fill={s.color} opacity={0.85} />
         ))}
         {/* Center label ring */}
-        {division !== "completa" && (
+        {division !== "completa" && division !== "tercios" && (
           <line
             x1={cx}
             y1={cy - r}
@@ -144,6 +165,21 @@ function PizzaVisual({
             strokeWidth="2"
           />
         )}
+        {division === "tercios" &&
+          [0, 120, 240].map((a) => {
+            const p = polarToCartesian(a)
+            return (
+              <line
+                key={a}
+                x1={cx}
+                y1={cy}
+                x2={p.x}
+                y2={p.y}
+                stroke="rgba(255,255,255,0.6)"
+                strokeWidth="2"
+              />
+            )
+          })}
         {/* Outer ring */}
         <circle
           cx={cx}
@@ -224,8 +260,6 @@ export default function PedidoView() {
     ingredients,
     addTicketItem,
     currentUser,
-    setSidebarOpen,
-    sidebarOpen,
     consumption,
     setConsumption,
     deliveryAddress: address,
@@ -241,6 +275,7 @@ export default function PedidoView() {
   const [division, setDivision] = useState<Division>("completa")
   const [flavor1, setFlavor1] = useState("")
   const [flavor2, setFlavor2] = useState("")
+  const [flavor3, setFlavor3] = useState("")
   const [extraIngredients, setExtraIngredients] = useState<string[]>([])
   const [pizzaExtras, setPizzaExtras] = useState<string[]>([])
   const [payMethod, setPayMethod] = useState<PaymentMethod>("efectivo")
@@ -251,6 +286,7 @@ export default function PedidoView() {
 
   const product1 = products.find((p) => p.id === flavor1)
   const product2 = products.find((p) => p.id === flavor2)
+  const product3 = products.find((p) => p.id === flavor3)
 
   const basePrice = product1 ? product1.prices[size] : 0
   const extraIngPrice = extraIngredients.length * 20
@@ -260,7 +296,10 @@ export default function PedidoView() {
   }, 0)
   const totalPrice = basePrice + extraIngPrice + pizzaExtrasPrice
 
-  const isValid = flavor1 !== "" && (division === "completa" || flavor2 !== "")
+  const isValid =
+    flavor1 !== "" &&
+    (division === "completa" || flavor2 !== "") &&
+    (division !== "tercios" || flavor3 !== "")
 
   // Slices rules
   const availableSlices =
@@ -289,7 +328,9 @@ export default function PedidoView() {
         ? ""
         : division === "mitad"
           ? `½ ${product1.name} / ½ ${product2?.name}`
-          : `¾ ${product1.name} / ¼ ${product2?.name}`
+          : division === "tercios"
+            ? `⅓ ${product1.name} / ⅓ ${product2?.name} / ⅓ ${product3?.name}`
+            : `¾ ${product1.name} / ¼ ${product2?.name}`
     const extrasLabel = extraIngredients
       .map((id) => ingredientItems.find((i) => i.id === id)?.name || id)
       .join(", ")
@@ -317,6 +358,7 @@ export default function PedidoView() {
     // Reset flavors/extras but keep config
     setFlavor1("")
     setFlavor2("")
+    setFlavor3("")
     setExtraIngredients([])
     setPizzaExtras([])
     setNotes("")
@@ -339,20 +381,6 @@ export default function PedidoView() {
             zIndex: 10,
           }}
         >
-          <button
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            style={{
-              background: "none",
-              border: "none",
-              cursor: "pointer",
-              padding: 4,
-              color: "#71717A",
-              display: "flex",
-              borderRadius: 6,
-            }}
-          >
-            <Icon name="menu" size={20} />
-          </button>
           <div>
             <div
               style={{
@@ -617,6 +645,7 @@ export default function PedidoView() {
                     onClick={() => {
                       setDivision(d.id)
                       if (d.id === "completa") setFlavor2("")
+                      if (d.id !== "tercios") setFlavor3("")
                     }}
                     style={{
                       flex: 1,
@@ -669,6 +698,9 @@ export default function PedidoView() {
                     flavor2Name={
                       products.find((p) => p.id === flavor2)?.name || ""
                     }
+                    flavor3Name={
+                      products.find((p) => p.id === flavor3)?.name || ""
+                    }
                   />
                 </div>
 
@@ -689,7 +721,9 @@ export default function PedidoView() {
                       ? "(¾)"
                       : division === "mitad"
                         ? "(½)"
-                        : ""}
+                        : division === "tercios"
+                          ? "(⅓)"
+                          : ""}
                   </div>
                   <div
                     style={{
@@ -773,7 +807,7 @@ export default function PedidoView() {
                           marginBottom: 6,
                         }}
                       >
-                        Segundo sabor {division === "cuartos" ? "(¼)" : "(½)"}
+                        Segundo sabor {division === "cuartos" ? "(¼)" : division === "tercios" ? "(⅓)" : "(½)"}
                       </div>
                       <div
                         style={{
@@ -805,6 +839,70 @@ export default function PedidoView() {
                                 }`,
                                 color: flavor2 === p.id ? "#D97706" : "#3F3F46",
                                 fontWeight: flavor2 === p.id ? 600 : 400,
+                                transition: "all 0.12s",
+                              }}
+                            >
+                              <span>{p.name}</span>
+                              <span
+                                style={{
+                                  fontFamily: "JetBrains Mono, monospace",
+                                  fontSize: 12,
+                                  fontWeight: 600,
+                                  flexShrink: 0,
+                                }}
+                              >
+                                ${p.prices[size]}
+                              </span>
+                            </button>
+                          ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {division === "tercios" && (
+                    <div style={{ marginTop: 12 }}>
+                      <div
+                        style={{
+                          fontSize: 10.5,
+                          fontWeight: 700,
+                          color: "#A1A1AA",
+                          letterSpacing: "0.06em",
+                          textTransform: "uppercase",
+                          marginBottom: 6,
+                        }}
+                      >
+                        Tercer sabor (⅓)
+                      </div>
+                      <div
+                        style={{
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 4,
+                          maxHeight: 140,
+                          overflowY: "auto",
+                        }}
+                      >
+                        {products
+                          .filter((p) => p.active && p.id !== flavor1 && p.id !== flavor2)
+                          .map((p) => (
+                            <button
+                              key={p.id}
+                              onClick={() => setFlavor3(p.id)}
+                              style={{
+                                padding: "7px 10px",
+                                borderRadius: 8,
+                                cursor: "pointer",
+                                fontSize: 12.5,
+                                textAlign: "left",
+                                display: "flex",
+                                justifyContent: "space-between",
+                                background:
+                                  flavor3 === p.id ? "#F0FDF4" : "#F7F7F8",
+                                border: `1px solid ${
+                                  flavor3 === p.id ? "#86EFAC" : "#E4E4E7"
+                                }`,
+                                color: flavor3 === p.id ? "#16A34A" : "#3F3F46",
+                                fontWeight: flavor3 === p.id ? 600 : 400,
                                 transition: "all 0.12s",
                               }}
                             >
@@ -990,9 +1088,13 @@ export default function PedidoView() {
                 >
                   {!flavor1
                     ? "Selecciona un sabor"
-                    : !isValid
+                    : division === "tercios" && !flavor2
                       ? "Selecciona segundo sabor"
-                      : `Agregar al ticket — $${totalPrice}`}
+                      : division === "tercios" && !flavor3
+                        ? "Selecciona tercer sabor"
+                        : !isValid
+                          ? "Selecciona segundo sabor"
+                          : `Agregar al ticket — $${totalPrice}`}
                 </button>
               </div>
             )}
@@ -1063,7 +1165,7 @@ function Card({
   )
 }
 
-function SummaryLine({ label, value }: { label: string value: number }) {
+function SummaryLine({ label, value }: { label: string; value: number }) {
   return (
     <div
       style={{

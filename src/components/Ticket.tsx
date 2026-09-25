@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useApp } from '../context'
 import Icon from './Icon'
 import type { Order } from '../types'
@@ -18,6 +18,16 @@ export default function Ticket() {
   const [cashReceived, setCashReceived] = useState('')
 
   const recalledOrder = recalledOrderId ? orders.find(o => o.id === recalledOrderId) ?? null : null
+
+  // Al recuperar un pedido pendiente al ticket, arranca limpio (sin
+  // arrastrar el estado de pago que haya quedado de la venta anterior).
+  useEffect(() => {
+    if (recalledOrderId) {
+      setPayStatus('pendiente')
+      setCashReceived('')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [recalledOrderId])
 
   const subtotal = ticketItems.reduce((s, i) => s + i.total, 0)
   const discount = activePromo
@@ -71,7 +81,7 @@ export default function Ticket() {
   const status = PAY_STATUS[payStatus]
 
   return (
-    <div style={{
+    <div className="ticket-panel" style={{
       width: sidebarOpen ? 288 : 340, minWidth: sidebarOpen ? 288 : 340,
       background: '#F7F7F8',
       borderLeft: '1px solid #E4E4E7',
@@ -288,21 +298,19 @@ export default function Ticket() {
       <div style={{ padding: '12px 14px', background: '#FFFFFF' }}>
         <button onClick={() => setShowConfirm(true)} disabled={!canCharge}
           style={{
-            width: '100%', padding: '13px', fontFamily: 'Cooper Black, serif', fontSize: 16, letterSpacing: '-0.01em',
+            width: '100%', padding: '13px 8px', fontFamily: 'Cooper Black, serif', fontSize: 15, letterSpacing: '-0.01em',
             background: canCharge ? '#DC2626' : '#F4F4F5',
             color: canCharge ? '#fff' : '#A1A1AA',
             border: 'none', borderRadius: 10, cursor: canCharge ? 'pointer' : 'not-allowed',
             boxShadow: canCharge ? '0 4px 16px rgba(220,38,38,0.3)' : 'none',
-            transition: 'all 0.14s',
+            transition: 'all 0.14s', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
           }}
           onMouseEnter={e => { if (canCharge) (e.currentTarget as HTMLElement).style.background = '#B91C1C' }}
           onMouseLeave={e => { if (canCharge) (e.currentTarget as HTMLElement).style.background = '#DC2626' }}
         >
           {recalledOrder
-            ? `Cobrar pedido ${recalledOrder.orderNumber}`
-            : payStatus === 'pendiente'
-              ? `Guardar pedido pendiente · $${total}`
-              : `Cobrar $${total}`}
+            ? (payStatus === 'pagado' ? `Cobrar ${recalledOrder.orderNumber}` : 'Guardar en activos')
+            : (payStatus === 'pendiente' ? `Guardar pendiente · $${total}` : `Cobrar $${total}`)}
         </button>
       </div>
 
