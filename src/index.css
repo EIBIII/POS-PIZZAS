@@ -158,6 +158,7 @@ input[type='number']::-webkit-outer-spin-button { -webkit-appearance: none; marg
   .split-panel { grid-template-columns: 1fr !important; }
   .dash-kpi-grid { grid-template-columns: repeat(2, 1fr) !important; }
   .reportes-grid { grid-template-columns: 1fr !important; }
+  .pedido-grid { grid-template-columns: 1fr !important; }
 }
 @media (max-width: 560px) {
   .dash-kpi-grid { grid-template-columns: 1fr !important; }
