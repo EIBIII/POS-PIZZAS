@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../context'
 import Icon from '../components/Icon'
+import Dropdown from '../components/Dropdown'
 import type { Order, OrderStatus } from '../types'
 
 const STATUS_COLORS: Record<string, [string, string]> = {
@@ -401,26 +402,16 @@ function capitalize(s: string) {
 }
 
 function FilterSelect({ icon, value, onChange, options }: { icon: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
-  const isDefault = value === 'all'
   return (
-    <div style={{ position: 'relative', flexShrink: 0 }}>
-      <div style={{ position: 'absolute', left: 10, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
-        <Icon name={icon} size={13} color={isDefault ? '#A1A1AA' : '#DC2626'} />
-      </div>
-      <select value={value} onChange={e => onChange(e.target.value)}
-        style={{
-          height: 36, appearance: 'none', WebkitAppearance: 'none', boxSizing: 'border-box',
-          padding: '0 26px 0 30px', fontSize: 12.5, fontWeight: 600,
-          background: isDefault ? '#F7F7F8' : '#FEF2F2',
-          color: isDefault ? '#3F3F46' : '#DC2626',
-          border: `1.5px solid ${isDefault ? '#E4E4E7' : '#FECACA'}`,
-          borderRadius: 9, outline: 'none', cursor: 'pointer', maxWidth: 180,
-        }}>
-        {options.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-      </select>
-      <div style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', display: 'flex', pointerEvents: 'none' }}>
-        <Icon name="chevronDown" size={12} color={isDefault ? '#A1A1AA' : '#DC2626'} />
-      </div>
+    <div style={{ minWidth: 150, maxWidth: 190, flexShrink: 0 }}>
+      <Dropdown
+        value={value}
+        onChange={onChange}
+        options={options.map(([v, label]) => ({ value: v, label }))}
+        icon={icon}
+        accentColor="#DC2626"
+        small
+      />
     </div>
   )
 }

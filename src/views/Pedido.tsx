@@ -2,6 +2,7 @@ import { useState } from "react"
 import { useApp } from "../context"
 import Ticket from "../components/Ticket"
 import Icon from "../components/Icon"
+import Dropdown from "../components/Dropdown"
 import type { PizzaSize, ConsumptionType, PaymentMethod } from "../types"
 
 const SIZES: { id: PizzaSize; label: string }[] = [
@@ -11,27 +12,23 @@ const SIZES: { id: PizzaSize; label: string }[] = [
 ]
 
 const SLICE_OPTIONS = [8, 12, 16]
+const MAX_PARTS = 4
 
-const NUM_PARTS_OPTIONS = [1, 2, 3, 4]
-
-// Fracciones disponibles por parte. No hay combinaciones predeterminadas
-// (no "1/2 y 1/2", no "3/4 y 1/4"): cada parte elige su propia fracción de
-// forma independiente y el sistema valida que la suma total dé exactamente 1.
-// "twelfths" es el valor sobre 12 (mínimo común múltiplo de 2,3,4) para poder
-// sumar y validar fracciones de distinto denominador sin errores de punto flotante.
+// Fracciones disponibles, de mayor a menor. "Completa" (1/1) es la opción por
+// defecto de la Parte 1: si el cajero la deja así, es una pizza de un solo
+// sabor. No hay combinaciones predeterminadas (no "1/2 y 1/2" como bloque
+// fijo): cada parte elige su fracción de forma independiente.
 const FRACTIONS: { value: number; label: string; twelfths: number }[] = [
-  { value: 1 / 4, label: "1/4", twelfths: 3 },
-  { value: 1 / 3, label: "1/3", twelfths: 4 },
-  { value: 1 / 2, label: "1/2", twelfths: 6 },
-  { value: 2 / 3, label: "2/3", twelfths: 8 },
+  { value: 1, label: "Completa (1/1)", twelfths: 12 },
   { value: 3 / 4, label: "3/4", twelfths: 9 },
+  { value: 2 / 3, label: "2/3", twelfths: 8 },
+  { value: 1 / 2, label: "1/2", twelfths: 6 },
+  { value: 1 / 3, label: "1/3", twelfths: 4 },
+  { value: 1 / 4, label: "1/4", twelfths: 3 },
 ]
 
-function defaultFractionFor(numParts: number): number {
-  if (numParts === 2) return 1 / 2
-  if (numParts === 3) return 1 / 3
-  if (numParts === 4) return 1 / 4
-  return 1
+function twelfthsOf(fraction: number): number {
+  return FRACTIONS.find((f) => f.value === fraction)?.twelfths ?? 12
 }
 
 function gcd(a: number, b: number): number {
@@ -44,19 +41,26 @@ function simplifyOverTwelve(n: number): string {
   return `${n / g}/${12 / g}`
 }
 
+// Al abrirse una parte nueva, se le sugiere de una vez la fracción que
+// completa el entero (si existe una opción exacta), para que "así
+// sucesivamente" el cajero normalmente solo tenga que elegir el sabor.
+function bestDefaultFraction(remainingTwelfths: number): number {
+  const exact = FRACTIONS.find((f) => f.twelfths === remainingTwelfths)
+  if (exact) return exact.value
+  const fits = FRACTIONS.filter((f) => f.twelfths <= remainingTwelfths && f.twelfths > 0).sort(
+    (a, b) => b.twelfths - a.twelfths,
+  )
+  return fits[0]?.value ?? FRACTIONS[FRACTIONS.length - 1].value
+}
+
 interface PizzaPart {
   fraction: number
   flavor: string
-  extras: string[]
+  extras: Record<string, number> // ingredientId -> cantidad
 }
 
-function makeParts(numParts: number): PizzaPart[] {
-  const frac = defaultFractionFor(numParts)
-  return Array.from({ length: numParts }, () => ({
-    fraction: frac,
-    flavor: "",
-    extras: [],
-  }))
+function extrasTotal(part: PizzaPart): number {
+  return Object.values(part.extras).reduce((s, q) => s + q, 0)
 }
 
 const CONSUMPTION_OPTIONS: {
@@ -74,7 +78,6 @@ const PIZZA_EXTRAS_LIST = [
   { id: "queso-extra", label: "Queso extra", price: 25 },
 ]
 
-// Colors for pizza division visualization
 const PIZZA_COLORS = [
   "#DC2626",
   "#FBBF24",
@@ -98,11 +101,7 @@ function PizzaVisual({
     return { x: cx + radius * Math.cos(rad), y: cy + radius * Math.sin(rad) }
   }
 
-  function arcPath(
-    startAngle: number,
-    endAngle: number,
-    radius: number = r,
-  ): string {
+  function arcPath(startAngle: number, endAngle: number, radius: number = r): string {
     const s = polarToCartesian(startAngle, radius)
     const e = polarToCartesian(endAngle, radius)
     const large = endAngle - startAngle > 180 ? 1 : 0
@@ -150,79 +149,24 @@ function PizzaVisual({
         {dividerAngles.map((a, i) => {
           const p = polarToCartesian(a)
           return (
-            <line
-              key={i}
-              x1={cx}
-              y1={cy}
-              x2={p.x}
-              y2={p.y}
-              stroke="rgba(255,255,255,0.6)"
-              strokeWidth="2"
-            />
+            <line key={i} x1={cx} y1={cy} x2={p.x} y2={p.y} stroke="rgba(255,255,255,0.6)" strokeWidth="2" />
           )
         })}
-        <circle
-          cx={cx}
-          cy={cy}
-          r={r}
-          fill="none"
-          stroke="rgba(255,255,255,0.5)"
-          strokeWidth="3"
-        />
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="rgba(255,255,255,0.5)" strokeWidth="3" />
         {[0, 45, 90, 135, 180, 225, 270, 315].map((a) => {
           const inner = polarToCartesian(a, r * 0.6)
           const outer = polarToCartesian(a, r - 6)
           return (
-            <line
-              key={a}
-              x1={inner.x}
-              y1={inner.y}
-              x2={outer.x}
-              y2={outer.y}
-              stroke="rgba(255,255,255,0.25)"
-              strokeWidth="1"
-            />
+            <line key={a} x1={inner.x} y1={inner.y} x2={outer.x} y2={outer.y} stroke="rgba(255,255,255,0.25)" strokeWidth="1" />
           )
         })}
       </svg>
 
-      <div
-        style={{
-          position: "absolute",
-          bottom: -32,
-          left: 0,
-          right: 0,
-          display: "flex",
-          gap: 8,
-          justifyContent: "center",
-          flexWrap: "wrap",
-        }}
-      >
+      <div style={{ position: "absolute", bottom: -32, left: 0, right: 0, display: "flex", gap: 8, justifyContent: "center", flexWrap: "wrap" }}>
         {slices.map((s, i) => (
-          <div
-            key={i}
-            style={{ display: "flex", alignItems: "center", gap: 5 }}
-          >
-            <div
-              style={{
-                width: 10,
-                height: 10,
-                borderRadius: "50%",
-                background: s.color,
-                flexShrink: 0,
-              }}
-            />
-            <span
-              style={{
-                fontSize: 11,
-                color: "#3F3F46",
-                fontWeight: 500,
-                whiteSpace: "nowrap",
-                maxWidth: 80,
-                overflow: "hidden",
-                textOverflow: "ellipsis",
-              }}
-            >
+          <div key={i} style={{ display: "flex", alignItems: "center", gap: 5 }}>
+            <div style={{ width: 10, height: 10, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+            <span style={{ fontSize: 11, color: "#3F3F46", fontWeight: 500, whiteSpace: "nowrap", maxWidth: 80, overflow: "hidden", textOverflow: "ellipsis" }}>
               {s.label}
             </span>
           </div>
@@ -249,70 +193,94 @@ export default function PedidoView() {
   const [deliveryCost, setDeliveryCost] = useState("30")
   const [size, setSize] = useState<PizzaSize>("grande")
   const [slices, setSlices] = useState(12)
-  const [numParts, setNumParts] = useState(1)
-  const [parts, setParts] = useState<PizzaPart[]>(() => makeParts(1))
+  const [parts, setParts] = useState<PizzaPart[]>([{ fraction: 1, flavor: "", extras: {} }])
   const [pizzaExtras, setPizzaExtras] = useState<string[]>([])
   const [payMethod, setPayMethod] = useState<PaymentMethod>("efectivo")
   const [notes, setNotes] = useState("")
 
-  // Ingredientes de categoría "Ingredientes" para los extras de cada parte
   const ingredientItems = ingredients.filter((i) => i.categoryId === "cat1")
-
   const partsProducts = parts.map((p) => products.find((pr) => pr.id === p.flavor))
 
-  function selectNumParts(n: number) {
-    setNumParts(n)
-    setParts(makeParts(n))
+  function remainingBeforeIndex(index: number): number {
+    return 12 - parts.slice(0, index).reduce((s, p) => s + twelfthsOf(p.fraction), 0)
   }
 
-  function updatePart(index: number, patch: Partial<PizzaPart>) {
-    setParts((prev) => prev.map((p, i) => (i === index ? { ...p, ...patch } : p)))
+  function optionsForPart(index: number) {
+    const remaining = remainingBeforeIndex(index)
+    return FRACTIONS.filter((f) => f.twelfths <= remaining)
   }
 
-  function toggleExtraForPart(index: number, ingId: string) {
+  // Cambiar la fracción de una parte recorta lo que había después de ella
+  // (ya no aplica) y, si aún no se completa el entero, abre automáticamente
+  // la siguiente parte con la fracción restante sugerida.
+  function updatePartFraction(index: number, value: number) {
+    setParts((prev) => {
+      const next = prev.slice(0, index + 1).map((p, i) => (i === index ? { ...p, fraction: value } : p))
+      const used = next.reduce((s, p) => s + twelfthsOf(p.fraction), 0)
+      if (used < 12 && next.length < MAX_PARTS) {
+        next.push({ fraction: bestDefaultFraction(12 - used), flavor: "", extras: {} })
+      }
+      return next
+    })
+  }
+
+  function updatePartFlavor(index: number, flavor: string) {
+    setParts((prev) => prev.map((p, i) => (i === index ? { ...p, flavor } : p)))
+  }
+
+  function removePart(index: number) {
+    if (index === 0) return
+    setParts((prev) => {
+      const next = prev.slice(0, index)
+      const used = next.reduce((s, p) => s + twelfthsOf(p.fraction), 0)
+      if (used < 12 && next.length < MAX_PARTS) {
+        next.push({ fraction: bestDefaultFraction(12 - used), flavor: "", extras: {} })
+      }
+      return next
+    })
+  }
+
+  function addExtraUnit(index: number, ingId: string) {
     setParts((prev) =>
       prev.map((p, i) => {
         if (i !== index) return p
-        if (p.extras.includes(ingId)) {
-          return { ...p, extras: p.extras.filter((x) => x !== ingId) }
+        if (extrasTotal(p) >= 10) return p
+        return { ...p, extras: { ...p.extras, [ingId]: (p.extras[ingId] || 0) + 1 } }
+      }),
+    )
+  }
+
+  function removeExtraUnit(index: number, ingId: string) {
+    setParts((prev) =>
+      prev.map((p, i) => {
+        if (i !== index) return p
+        const current = p.extras[ingId] || 0
+        if (current <= 1) {
+          const rest = { ...p.extras }
+          delete rest[ingId]
+          return { ...p, extras: rest }
         }
-        if (p.extras.length >= 10) return p
-        return { ...p, extras: [...p.extras, ingId] }
+        return { ...p, extras: { ...p.extras, [ingId]: current - 1 } }
       }),
     )
   }
 
   function togglePizzaExtra(id: string) {
-    setPizzaExtras((prev) =>
-      prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id],
-    )
+    setPizzaExtras((prev) => (prev.includes(id) ? prev.filter((i) => i !== id) : [...prev, id]))
   }
 
-  // Slices rules
-  const availableSlices =
-    size === "mediana" ? [8] : size === "grande" ? [8, 12] : [8, 12, 16]
+  const availableSlices = size === "mediana" ? [8] : size === "grande" ? [8, 12] : [8, 12, 16]
 
-  // Validación de fracciones: la suma de todas las partes debe dar
-  // exactamente 1 entero. Se trabaja sobre doceavos (mcm de 2,3,4) para
-  // evitar errores de punto flotante al sumar fracciones distintas.
-  const totalTwelfths =
-    numParts === 1
-      ? 12
-      : parts.reduce((s, p) => {
-          const f = FRACTIONS.find((fr) => fr.value === p.fraction)
-          return s + (f?.twelfths ?? 0)
-        }, 0)
+  const totalTwelfths = parts.reduce((s, p) => s + twelfthsOf(p.fraction), 0)
   const totalLabel = simplifyOverTwelve(totalTwelfths)
   const fractionsValid = totalTwelfths === 12
 
-  const basePrice =
-    numParts === 1
-      ? partsProducts[0]?.prices[size] ?? 0
-      : parts.reduce(
-          (s, p, i) => s + Math.round(p.fraction * (partsProducts[i]?.prices[size] ?? 0)),
-          0,
-        )
-  const extraIngPrice = parts.reduce((s, p) => s + p.extras.length * 20, 0)
+  // La pizza se cobra al precio de la parte más cara (no una suma
+  // proporcional): el sabor más caro entre los elegidos define el precio
+  // base de toda la pizza.
+  const selectedPrices = partsProducts.filter(Boolean).map((p) => p!.prices[size])
+  const basePrice = selectedPrices.length ? Math.max(...selectedPrices) : 0
+  const extraIngPrice = parts.reduce((s, p) => s + extrasTotal(p) * 20, 0)
   const pizzaExtrasPrice = pizzaExtras.reduce((s, id) => {
     const ex = PIZZA_EXTRAS_LIST.find((e) => e.id === id)
     return s + (ex?.price || 0)
@@ -320,7 +288,7 @@ export default function PedidoView() {
   const totalPrice = basePrice + extraIngPrice + pizzaExtrasPrice
 
   const allFlavorsSelected = parts.every((p) => p.flavor !== "")
-  const isValid = allFlavorsSelected && (numParts === 1 || fractionsValid)
+  const isValid = allFlavorsSelected && fractionsValid
   const anyFlavorSelected = parts.some((p) => p.flavor !== "")
   const firstMissingIndex = parts.findIndex((p) => p.flavor === "")
 
@@ -334,10 +302,13 @@ export default function PedidoView() {
       .map((p, i) => {
         const prod = partsProducts[i]
         if (!prod) return ""
-        const fracLabel =
-          numParts === 1 ? "" : `${FRACTIONS.find((f) => f.value === p.fraction)?.label} `
-        const extrasNames = p.extras
-          .map((id) => ingredientItems.find((ig) => ig.id === id)?.name)
+        const fracLabel = parts.length === 1 ? "" : `${FRACTIONS.find((f) => f.value === p.fraction)?.label} `
+        const extrasNames = Object.entries(p.extras)
+          .map(([id, qty]) => {
+            const ing = ingredientItems.find((ig) => ig.id === id)
+            if (!ing) return null
+            return qty > 1 ? `${ing.name} x${qty}` : ing.name
+          })
           .filter(Boolean)
         const extrasStr = extrasNames.length ? ` (+${extrasNames.join(", ")})` : ""
         return `${fracLabel}${prod.name}${extrasStr}`
@@ -347,21 +318,15 @@ export default function PedidoView() {
 
     const details = [
       partsLabel,
-      pizzaExtras
-        .map((id) => PIZZA_EXTRAS_LIST.find((e) => e.id === id)?.label)
-        .filter(Boolean)
-        .join(", "),
+      pizzaExtras.map((id) => PIZZA_EXTRAS_LIST.find((e) => e.id === id)?.label).filter(Boolean).join(", "),
     ]
       .filter(Boolean)
       .join(" · ")
 
     const name =
-      numParts === 1
+      parts.length === 1
         ? `${primaryProduct.name} ${sizeLabel}`
-        : `${parts
-            .map((_, i) => partsProducts[i]?.name)
-            .filter(Boolean)
-            .join(" / ")} ${sizeLabel}`
+        : `${parts.map((_, i) => partsProducts[i]?.name).filter(Boolean).join(" / ")} ${sizeLabel}`
 
     addTicketItem({
       id: `pizza-${Date.now()}`,
@@ -374,8 +339,7 @@ export default function PedidoView() {
       details,
     })
 
-    // Reset sabores/extras pero mantiene tamaño y número de partes elegido
-    setParts(makeParts(numParts))
+    setParts([{ fraction: 1, flavor: "", extras: {} }])
     setPizzaExtras([])
     setNotes("")
   }
@@ -383,7 +347,6 @@ export default function PedidoView() {
   return (
     <div style={{ display: "flex", height: "100vh", overflow: "hidden" }}>
       <div style={{ flex: 1, overflowY: "auto", background: "#F7F7F8" }}>
-        {/* Top bar */}
         <div
           style={{
             background: "#FFFFFF",
@@ -397,30 +360,11 @@ export default function PedidoView() {
             zIndex: 10,
           }}
         >
-          <div>
-            <div
-              style={{
-                fontFamily: "Cooper Black, serif",
-                fontSize: 20,
-                color: "#18181B",
-                lineHeight: 1,
-              }}
-            >
-              Nuevo Pedido
-            </div>
+          <div style={{ fontFamily: "Cooper Black, serif", fontSize: 20, color: "#18181B", lineHeight: 1 }}>
+            Nuevo Pedido
           </div>
-          {/* Payment status panel */}
-          <div
-            style={{
-              marginLeft: "auto",
-              display: "flex",
-              gap: 6,
-              alignItems: "center",
-            }}
-          >
-            <div style={{ fontSize: 11.5, fontWeight: 600, color: "#A1A1AA" }}>
-              Método:
-            </div>
+          <div style={{ marginLeft: "auto", display: "flex", gap: 6, alignItems: "center" }}>
+            <div style={{ fontSize: 11.5, fontWeight: 600, color: "#A1A1AA" }}>Método:</div>
             {(["efectivo", "tarjeta"] as PaymentMethod[]).map((m) => (
               <button
                 key={m}
@@ -431,47 +375,26 @@ export default function PedidoView() {
                   fontWeight: 600,
                   background: payMethod === m ? "#DC2626" : "#F7F7F8",
                   color: payMethod === m ? "#fff" : "#71717A",
-                  border: `1px solid ${
-                    payMethod === m ? "#DC2626" : "#E4E4E7"
-                  }`,
+                  border: `1px solid ${payMethod === m ? "#DC2626" : "#E4E4E7"}`,
                   borderRadius: 8,
                   cursor: "pointer",
                   display: "flex",
                   alignItems: "center",
                   gap: 5,
-                  transition: "all 0.12s",
                 }}
               >
-                <Icon
-                  name={m === "efectivo" ? "receipt" : "tag"}
-                  size={12}
-                  color={payMethod === m ? "#fff" : "#71717A"}
-                />
+                <Icon name={m === "efectivo" ? "receipt" : "tag"} size={12} color={payMethod === m ? "#fff" : "#71717A"} />
                 {m === "efectivo" ? "Efectivo" : "Tarjeta"}
               </button>
             ))}
           </div>
         </div>
 
-        <div
-          className="pedido-grid"
-          style={{
-            padding: "20px 24px",
-            display: "grid",
-            gridTemplateColumns: "1fr 1fr",
-            gap: 16,
-          }}
-        >
+        <div className="pedido-grid" style={{ padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
           {/* LEFT COLUMN */}
           <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Cliente + Consumo */}
             <Card title="Cliente y Consumo">
-              <input
-                value={customer}
-                onChange={(e) => setCustomer(e.target.value)}
-                placeholder="Nombre del cliente"
-                style={inputSt}
-              />
+              <input value={customer} onChange={(e) => setCustomer(e.target.value)} placeholder="Nombre del cliente" style={inputSt} />
               <div style={{ display: "flex", gap: 6, marginTop: 10 }}>
                 {CONSUMPTION_OPTIONS.map((c) => (
                   <button
@@ -484,67 +407,155 @@ export default function PedidoView() {
                       fontWeight: 500,
                       background: consumption === c.id ? "#DC2626" : "#F7F7F8",
                       color: consumption === c.id ? "#fff" : "#3F3F46",
-                      border: `1px solid ${
-                        consumption === c.id ? "#DC2626" : "#E4E4E7"
-                      }`,
+                      border: `1px solid ${consumption === c.id ? "#DC2626" : "#E4E4E7"}`,
                       borderRadius: 8,
                       cursor: "pointer",
-                      transition: "all 0.12s",
                       display: "flex",
                       alignItems: "center",
                       justifyContent: "center",
                       gap: 5,
                     }}
                   >
-                    <Icon
-                      name={c.icon}
-                      size={12}
-                      color={consumption === c.id ? "#fff" : "#71717A"}
-                    />
+                    <Icon name={c.icon} size={12} color={consumption === c.id ? "#fff" : "#71717A"} />
                     {c.label}
                   </button>
                 ))}
               </div>
               {consumption === "delivery" && (
-                <div
-                  style={{
-                    marginTop: 10,
-                    display: "flex",
-                    flexDirection: "column",
-                    gap: 8,
-                  }}
-                >
-                  <input
-                    value={address}
-                    onChange={(e) => setAddress(e.target.value)}
-                    placeholder="Dirección de entrega"
-                    style={inputSt}
-                  />
+                <div style={{ marginTop: 10, display: "flex", flexDirection: "column", gap: 8 }}>
+                  <input value={address} onChange={(e) => setAddress(e.target.value)} placeholder="Dirección de entrega" style={inputSt} />
                   <div style={{ display: "flex", gap: 8 }}>
-                    <input
-                      value={phone}
-                      onChange={(e) => setPhone(e.target.value)}
-                      placeholder="Teléfono"
-                      style={{ ...inputSt, flex: 1 }}
-                    />
+                    <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="Teléfono" style={{ ...inputSt, flex: 1 }} />
                     <input
                       type="number"
                       value={deliveryCost}
                       onChange={(e) => setDeliveryCost(e.target.value)}
                       placeholder="Envío $"
-                      style={{
-                        ...inputSt,
-                        width: 80,
-                        flex: "none",
-                        textAlign: "center",
-                      }}
+                      style={{ ...inputSt, width: 80, flex: "none", textAlign: "center" }}
                     />
                   </div>
                 </div>
               )}
             </Card>
 
-            {/* Tamaño */}
+            {/* Partes de la pizza: se abren dinámicamente según la fracción elegida */}
+            {parts.map((part, i) => {
+              const total = extrasTotal(part)
+              return (
+                <Card key={i} title={`Parte ${i + 1}`} onRemove={i > 0 ? () => removePart(i) : undefined}>
+                  <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
+                    <div style={{ width: 130, flexShrink: 0 }}>
+                      <div style={fieldLabelSt}>Fracción</div>
+                      <Dropdown
+                        value={String(part.fraction)}
+                        onChange={(v) => updatePartFraction(i, Number(v))}
+                        options={optionsForPart(i).map((f) => ({ value: String(f.value), label: f.label }))}
+                        small
+                      />
+                    </div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={fieldLabelSt}>Sabor</div>
+                      <Dropdown
+                        value={part.flavor}
+                        onChange={(v) => updatePartFlavor(i, v)}
+                        placeholder="Selecciona..."
+                        options={products
+                          .filter((p) => p.active)
+                          .map((p) => ({ value: p.id, label: `${p.name} — $${p.prices[size]}${p.specialty ? " ★" : ""}` }))}
+                        small
+                      />
+                    </div>
+                  </div>
+
+                  <div style={fieldLabelSt}>
+                    Ingredientes extra — Parte {i + 1} ({total}/10) — $20 c/u
+                  </div>
+                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                    {ingredientItems.map((ing) => {
+                      const qty = part.extras[ing.id] || 0
+                      const sel = qty > 0
+                      return (
+                        <div
+                          key={ing.id}
+                          style={{
+                            display: "flex", alignItems: "center", gap: 0,
+                            borderRadius: 8, overflow: "hidden",
+                            border: `1px solid ${sel ? "#FCA5A5" : "#E4E4E7"}`,
+                          }}
+                        >
+                          <button
+                            onClick={() => addExtraUnit(i, ing.id)}
+                            disabled={!sel && total >= 10}
+                            style={{
+                              padding: "5px 10px", fontSize: 12, cursor: "pointer", border: "none",
+                              background: sel ? "#FEF2F2" : "#F7F7F8", color: sel ? "#DC2626" : "#3F3F46",
+                              fontWeight: sel ? 600 : 400, opacity: !sel && total >= 10 ? 0.4 : 1,
+                              display: "flex", alignItems: "center", gap: 4,
+                            }}
+                          >
+                            {sel && <Icon name="check" size={10} color="#DC2626" strokeWidth={2.5} />}
+                            {ing.name}
+                          </button>
+                          {sel && (
+                            <div style={{ display: "flex", alignItems: "center", background: "#FEF2F2", borderLeft: "1px solid #FCA5A5" }}>
+                              <button onClick={() => removeExtraUnit(i, ing.id)}
+                                style={{ width: 22, height: '100%', border: "none", background: "none", cursor: "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13 }}>
+                                −
+                              </button>
+                              <span style={{ fontSize: 11.5, fontWeight: 700, color: "#DC2626", minWidth: 14, textAlign: "center" }}>{qty}</span>
+                              <button onClick={() => addExtraUnit(i, ing.id)} disabled={total >= 10}
+                                style={{ width: 22, height: '100%', border: "none", background: "none", cursor: total >= 10 ? "not-allowed" : "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13, opacity: total >= 10 ? 0.4 : 1 }}>
+                                +
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                </Card>
+              )
+            })}
+
+            {parts.length > 1 && (
+              <div
+                style={{
+                  display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10,
+                  background: fractionsValid ? "#F0FDF4" : "#FEF2F2",
+                  border: `1px solid ${fractionsValid ? "#86EFAC" : "#FCA5A5"}`,
+                }}
+              >
+                <Icon name={fractionsValid ? "check" : "alertTriangle"} size={15} color={fractionsValid ? "#16A34A" : "#DC2626"} />
+                <span style={{ fontSize: 13, fontWeight: 700, color: fractionsValid ? "#16A34A" : "#DC2626" }}>
+                  Total: {totalLabel} {fractionsValid ? "✓" : "✗"}
+                </span>
+              </div>
+            )}
+
+            <Card title="Observaciones">
+              <textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="Sin cebolla, bien cocida, etc."
+                rows={2}
+                style={{ ...inputSt, resize: "none", width: "100%" }}
+              />
+            </Card>
+          </div>
+
+          {/* RIGHT COLUMN */}
+          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+            <Card title="Vista Previa">
+              <div style={{ display: "flex", justifyContent: "center", paddingBottom: 36 }}>
+                <PizzaVisual
+                  parts={parts.map((p, i) => ({
+                    fractionValue: p.fraction,
+                    flavorName: partsProducts[i]?.name || "",
+                  }))}
+                />
+              </div>
+            </Card>
+
             <Card title="Tamaño">
               <div style={{ display: "flex", gap: 8 }}>
                 {SIZES.map((s) => (
@@ -552,9 +563,7 @@ export default function PedidoView() {
                     key={s.id}
                     onClick={() => {
                       setSize(s.id)
-                      setSlices(
-                        s.id === "mediana" ? 8 : s.id === "grande" ? 12 : 16,
-                      )
+                      setSlices(s.id === "mediana" ? 8 : s.id === "grande" ? 12 : 16)
                     }}
                     style={{
                       flex: 1,
@@ -562,15 +571,11 @@ export default function PedidoView() {
                       borderRadius: 10,
                       cursor: "pointer",
                       background: size === s.id ? "#FEF2F2" : "#F7F7F8",
-                      border: `2px solid ${
-                        size === s.id ? "#DC2626" : "#E4E4E7"
-                      }`,
+                      border: `2px solid ${size === s.id ? "#DC2626" : "#E4E4E7"}`,
                       color: size === s.id ? "#DC2626" : "#3F3F46",
-                      fontFamily:
-                        size === s.id ? "Cooper Black, serif" : "inherit",
+                      fontFamily: size === s.id ? "Cooper Black, serif" : "inherit",
                       fontSize: 14,
                       fontWeight: size === s.id ? 700 : 500,
-                      transition: "all 0.12s",
                       textAlign: "center",
                     }}
                   >
@@ -580,7 +585,6 @@ export default function PedidoView() {
               </div>
             </Card>
 
-            {/* Rebanadas */}
             <Card title="Rebanadas">
               <div style={{ display: "flex", gap: 8 }}>
                 {SLICE_OPTIONS.map((n) => {
@@ -595,24 +599,11 @@ export default function PedidoView() {
                         padding: "12px",
                         fontSize: 18,
                         fontFamily: "Cooper Black, serif",
-                        background:
-                          slices === n
-                            ? "#DC2626"
-                            : avail
-                              ? "#F7F7F8"
-                              : "#FAFAFA",
-                        color:
-                          slices === n ? "#fff" : avail ? "#18181B" : "#D4D4D8",
-                        border: `2px solid ${
-                          slices === n
-                            ? "#DC2626"
-                            : avail
-                              ? "#E4E4E7"
-                              : "#F4F4F5"
-                        }`,
+                        background: slices === n ? "#DC2626" : avail ? "#F7F7F8" : "#FAFAFA",
+                        color: slices === n ? "#fff" : avail ? "#18181B" : "#D4D4D8",
+                        border: `2px solid ${slices === n ? "#DC2626" : avail ? "#E4E4E7" : "#F4F4F5"}`,
                         borderRadius: 10,
                         cursor: avail ? "pointer" : "not-allowed",
-                        transition: "all 0.12s",
                         opacity: avail ? 1 : 0.45,
                       }}
                     >
@@ -622,212 +613,19 @@ export default function PedidoView() {
                 })}
               </div>
               {size === "mediana" && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 11.5,
-                    color: "#D97706",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
+                <div style={{ marginTop: 8, fontSize: 11.5, color: "#D97706", display: "flex", alignItems: "center", gap: 5 }}>
                   <Icon name="info" size={13} color="#D97706" />
                   Mediana: solo disponible en 8 rebanadas
                 </div>
               )}
               {size === "grande" && (
-                <div
-                  style={{
-                    marginTop: 8,
-                    fontSize: 11.5,
-                    color: "#71717A",
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 5,
-                  }}
-                >
+                <div style={{ marginTop: 8, fontSize: 11.5, color: "#71717A", display: "flex", alignItems: "center", gap: 5 }}>
                   <Icon name="info" size={13} color="#71717A" />
                   Grande: 8 o 12 rebanadas
                 </div>
               )}
             </Card>
 
-            {/* División */}
-            <Card title="División">
-              <div style={{ fontSize: 12, color: "#71717A", marginBottom: 10 }}>
-                ¿Cuántas partes?
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                {NUM_PARTS_OPTIONS.map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => selectNumParts(n)}
-                    style={{
-                      flex: 1,
-                      padding: "10px 6px",
-                      borderRadius: 10,
-                      cursor: "pointer",
-                      fontSize: 13,
-                      fontWeight: 600,
-                      background: numParts === n ? "#FEF2F2" : "#F7F7F8",
-                      border: `2px solid ${
-                        numParts === n ? "#DC2626" : "#E4E4E7"
-                      }`,
-                      color: numParts === n ? "#DC2626" : "#3F3F46",
-                      transition: "all 0.12s",
-                      textAlign: "center",
-                    }}
-                  >
-                    {n === 1 ? "Completa" : `${n} partes`}
-                  </button>
-                ))}
-              </div>
-              {numParts > 1 && (
-                <div
-                  style={{
-                    marginTop: 12,
-                    display: "flex",
-                    alignItems: "center",
-                    gap: 8,
-                    padding: "9px 12px",
-                    borderRadius: 9,
-                    background: fractionsValid ? "#F0FDF4" : "#FEF2F2",
-                    border: `1px solid ${
-                      fractionsValid ? "#86EFAC" : "#FCA5A5"
-                    }`,
-                  }}
-                >
-                  <Icon
-                    name={fractionsValid ? "check" : "alertTriangle"}
-                    size={14}
-                    color={fractionsValid ? "#16A34A" : "#DC2626"}
-                  />
-                  <span
-                    style={{
-                      fontSize: 12.5,
-                      fontWeight: 700,
-                      color: fractionsValid ? "#16A34A" : "#DC2626",
-                    }}
-                  >
-                    Total: {totalLabel} {fractionsValid ? "✓" : "✗"}
-                  </span>
-                </div>
-              )}
-            </Card>
-
-            {/* Observaciones */}
-            <Card title="Observaciones">
-              <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Sin cebolla, bien cocida, etc."
-                rows={2}
-                style={{ ...inputSt, resize: "none", width: "100%" }}
-              />
-            </Card>
-          </div>
-
-          {/* RIGHT COLUMN */}
-          <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-            {/* Pizza visual */}
-            <Card title="Vista Previa">
-              <div style={{ display: "flex", justifyContent: "center", paddingBottom: 36 }}>
-                <PizzaVisual
-                  parts={parts.map((p, i) => ({
-                    fractionValue: numParts === 1 ? 1 : p.fraction,
-                    flavorName: partsProducts[i]?.name || "",
-                  }))}
-                />
-              </div>
-            </Card>
-
-            {/* Partes: fracción, sabor e ingredientes extra independientes por parte */}
-            {parts.map((part, i) => (
-              <Card key={i} title={numParts === 1 ? "Sabor" : `Parte ${i + 1}`}>
-                <div style={{ display: "flex", gap: 8, marginBottom: 14 }}>
-                  {numParts > 1 && (
-                    <div style={{ width: 90, flexShrink: 0 }}>
-                      <div style={fieldLabelSt}>Fracción</div>
-                      <select
-                        value={part.fraction}
-                        onChange={(e) =>
-                          updatePart(i, { fraction: Number(e.target.value) })
-                        }
-                        style={selectSt}
-                      >
-                        {FRACTIONS.map((f) => (
-                          <option key={f.label} value={f.value}>
-                            {f.label}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={fieldLabelSt}>Sabor</div>
-                    <select
-                      value={part.flavor}
-                      onChange={(e) => updatePart(i, { flavor: e.target.value })}
-                      style={selectSt}
-                    >
-                      <option value="">Selecciona...</option>
-                      {products
-                        .filter((p) => p.active)
-                        .map((p) => (
-                          <option key={p.id} value={p.id}>
-                            {p.name} — ${p.prices[size]}
-                            {p.specialty ? " ★" : ""}
-                          </option>
-                        ))}
-                    </select>
-                  </div>
-                </div>
-
-                <div style={fieldLabelSt}>
-                  Ingredientes extra{numParts > 1 ? ` — Parte ${i + 1}` : ""} (
-                  {part.extras.length}/10) — $20 c/u
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
-                  {ingredientItems.map((ing) => {
-                    const sel = part.extras.includes(ing.id)
-                    return (
-                      <button
-                        key={ing.id}
-                        onClick={() => toggleExtraForPart(i, ing.id)}
-                        style={{
-                          padding: "5px 10px",
-                          fontSize: 12,
-                          borderRadius: 8,
-                          cursor: "pointer",
-                          background: sel ? "#FEF2F2" : "#F7F7F8",
-                          color: sel ? "#DC2626" : "#3F3F46",
-                          border: `1px solid ${sel ? "#FCA5A5" : "#E4E4E7"}`,
-                          fontWeight: sel ? 600 : 400,
-                          transition: "all 0.12s",
-                          opacity: !sel && part.extras.length >= 10 ? 0.4 : 1,
-                          display: "flex",
-                          alignItems: "center",
-                          gap: 4,
-                        }}
-                      >
-                        {sel && (
-                          <Icon
-                            name="check"
-                            size={10}
-                            color="#DC2626"
-                            strokeWidth={2.5}
-                          />
-                        )}
-                        {ing.name}
-                      </button>
-                    )
-                  })}
-                </div>
-              </Card>
-            ))}
-
-            {/* Extras de pizza */}
             <Card title="Extras de Pizza">
               <div style={{ display: "flex", gap: 8 }}>
                 {PIZZA_EXTRAS_LIST.map((ex) => {
@@ -846,19 +644,11 @@ export default function PedidoView() {
                         background: sel ? "#FFFBEB" : "#F7F7F8",
                         border: `2px solid ${sel ? "#FBBF24" : "#E4E4E7"}`,
                         color: sel ? "#D97706" : "#3F3F46",
-                        transition: "all 0.12s",
                         textAlign: "center",
                       }}
                     >
                       <div style={{ fontWeight: 600 }}>{ex.label}</div>
-                      <div
-                        style={{
-                          fontFamily: "JetBrains Mono, monospace",
-                          fontSize: 12,
-                          marginTop: 2,
-                          color: sel ? "#D97706" : "#A1A1AA",
-                        }}
-                      >
+                      <div style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12, marginTop: 2, color: sel ? "#D97706" : "#A1A1AA" }}>
                         +${ex.price}
                       </div>
                     </button>
@@ -867,11 +657,8 @@ export default function PedidoView() {
               </div>
             </Card>
 
-            {/* Price summary + add button */}
             {anyFlavorSelected && (
-              <div
-                style={{ background: "#18181B", borderRadius: 14, padding: 18 }}
-              >
+              <div style={{ background: "#18181B", borderRadius: 14, padding: 18 }}>
                 <div style={{ marginBottom: 12 }}>
                   {parts.map(
                     (p, i) =>
@@ -879,64 +666,35 @@ export default function PedidoView() {
                         <SummaryLine
                           key={i}
                           label={
-                            numParts === 1
+                            parts.length === 1
                               ? `${partsProducts[i]!.name} ${SIZES.find((s) => s.id === size)?.label}`
                               : `${FRACTIONS.find((f) => f.value === p.fraction)?.label} ${partsProducts[i]!.name}`
                           }
-                          value={Math.round(
-                            (numParts === 1 ? 1 : p.fraction) *
-                              (partsProducts[i]!.prices[size] ?? 0),
-                          )}
+                          value={partsProducts[i]!.prices[size]}
                         />
                       ),
                   )}
+                  <div style={{ fontSize: 10.5, color: "rgba(255,255,255,0.35)", marginBottom: 8, marginTop: -2 }}>
+                    Se cobra el precio de la parte más cara
+                  </div>
                   {parts.map(
                     (p, i) =>
-                      p.extras.length > 0 && (
+                      extrasTotal(p) > 0 && (
                         <SummaryLine
                           key={`extra-${i}`}
-                          label={`${numParts > 1 ? `Parte ${i + 1}: ` : ""}${p.extras.length} extra${
-                            p.extras.length > 1 ? "s" : ""
-                          } ingrediente`}
-                          value={p.extras.length * 20}
+                          label={`${parts.length > 1 ? `Parte ${i + 1}: ` : ""}${extrasTotal(p)} extra${extrasTotal(p) > 1 ? "s" : ""} ingrediente`}
+                          value={extrasTotal(p) * 20}
                         />
                       ),
                   )}
                   {pizzaExtras.map((id) => {
                     const ex = PIZZA_EXTRAS_LIST.find((e) => e.id === id)
-                    return ex ? (
-                      <SummaryLine key={id} label={ex.label} value={ex.price} />
-                    ) : null
+                    return ex ? <SummaryLine key={id} label={ex.label} value={ex.price} /> : null
                   })}
                 </div>
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "center",
-                    paddingTop: 12,
-                    borderTop: "1px solid rgba(255,255,255,0.1)",
-                  }}
-                >
-                  <span
-                    style={{
-                      fontFamily: "Cooper Black, serif",
-                      fontSize: 16,
-                      color: "#FFFFFF",
-                    }}
-                  >
-                    Total pizza
-                  </span>
-                  <span
-                    style={{
-                      fontFamily: "JetBrains Mono, monospace",
-                      fontSize: 22,
-                      fontWeight: 700,
-                      color: "#FBBF24",
-                    }}
-                  >
-                    ${totalPrice}
-                  </span>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.1)" }}>
+                  <span style={{ fontFamily: "Cooper Black, serif", fontSize: 16, color: "#FFFFFF" }}>Total pizza</span>
+                  <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 22, fontWeight: 700, color: "#FBBF24" }}>${totalPrice}</span>
                 </div>
 
                 <button
@@ -953,15 +711,12 @@ export default function PedidoView() {
                     border: "none",
                     borderRadius: 10,
                     cursor: isValid ? "pointer" : "not-allowed",
-                    boxShadow: isValid
-                      ? "0 4px 16px rgba(220,38,38,0.4)"
-                      : "none",
-                    transition: "all 0.12s",
+                    boxShadow: isValid ? "0 4px 16px rgba(220,38,38,0.4)" : "none",
                   }}
                 >
                   {firstMissingIndex !== -1
                     ? `Selecciona sabor — Parte ${firstMissingIndex + 1}`
-                    : numParts > 1 && !fractionsValid
+                    : !fractionsValid
                       ? `Ajusta las fracciones (Total: ${totalLabel})`
                       : `Agregar al ticket — $${totalPrice}`}
                 </button>
@@ -969,26 +724,9 @@ export default function PedidoView() {
             )}
 
             {!anyFlavorSelected && (
-              <div
-                style={{
-                  background: "#FEF2F2",
-                  border: "1px dashed #FCA5A5",
-                  borderRadius: 12,
-                  padding: 20,
-                  textAlign: "center",
-                }}
-              >
+              <div style={{ background: "#FEF2F2", border: "1px dashed #FCA5A5", borderRadius: 12, padding: 20, textAlign: "center" }}>
                 <Icon name="pizza" size={32} color="#FCA5A5" />
-                <div
-                  style={{
-                    fontSize: 13,
-                    color: "#DC2626",
-                    marginTop: 8,
-                    fontWeight: 500,
-                  }}
-                >
-                  Selecciona un sabor del menú
-                </div>
+                <div style={{ fontSize: 13, color: "#DC2626", marginTop: 8, fontWeight: 500 }}>Selecciona un sabor del menú</div>
               </div>
             )}
           </div>
@@ -1000,34 +738,19 @@ export default function PedidoView() {
   )
 }
 
-function Card({
-  title,
-  children,
-}: {
-  title: string
-  children: React.ReactNode
-}) {
+function Card({ title, children, onRemove }: { title: string; children: React.ReactNode; onRemove?: () => void }) {
   return (
-    <div
-      style={{
-        background: "#FFFFFF",
-        border: "1px solid #E4E4E7",
-        borderRadius: 14,
-        padding: 16,
-        boxShadow: "0 1px 3px rgba(0,0,0,0.04)",
-      }}
-    >
-      <div
-        style={{
-          fontSize: 10.5,
-          fontWeight: 700,
-          color: "#A1A1AA",
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          marginBottom: 12,
-        }}
-      >
-        {title}
+    <div style={{ background: "#FFFFFF", border: "1px solid #E4E4E7", borderRadius: 14, padding: 16, boxShadow: "0 1px 3px rgba(0,0,0,0.04)" }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 12 }}>
+        <div style={{ fontSize: 10.5, fontWeight: 700, color: "#A1A1AA", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+          {title}
+        </div>
+        {onRemove && (
+          <button onClick={onRemove} title="Quitar esta parte"
+            style={{ background: "none", border: "none", cursor: "pointer", padding: 2, display: "flex", color: "#D4D4D8" }}>
+            <Icon name="x" size={14} color="#D4D4D8" />
+          </button>
+        )}
       </div>
       {children}
     </div>
@@ -1036,25 +759,9 @@ function Card({
 
 function SummaryLine({ label, value }: { label: string; value: number }) {
   return (
-    <div
-      style={{
-        display: "flex",
-        justifyContent: "space-between",
-        marginBottom: 6,
-      }}
-    >
-      <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>
-        {label}
-      </span>
-      <span
-        style={{
-          fontFamily: "JetBrains Mono, monospace",
-          fontSize: 12.5,
-          color: "rgba(255,255,255,0.6)",
-        }}
-      >
-        ${value}
-      </span>
+    <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 6 }}>
+      <span style={{ fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>{label}</span>
+      <span style={{ fontFamily: "JetBrains Mono, monospace", fontSize: 12.5, color: "rgba(255,255,255,0.6)" }}>${value}</span>
     </div>
   )
 }
@@ -1068,18 +775,6 @@ const inputSt: React.CSSProperties = {
   border: "1px solid #E4E4E7",
   borderRadius: 9,
   fontFamily: "Inter, sans-serif",
-}
-
-const selectSt: React.CSSProperties = {
-  width: "100%",
-  padding: "8px 10px",
-  fontSize: 12.5,
-  background: "#F7F7F8",
-  color: "#18181B",
-  border: "1px solid #E4E4E7",
-  borderRadius: 8,
-  fontFamily: "Inter, sans-serif",
-  cursor: "pointer",
 }
 
 const fieldLabelSt: React.CSSProperties = {
