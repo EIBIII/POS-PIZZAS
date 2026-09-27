@@ -44,13 +44,26 @@ function simplifyOverTwelve(n: number): string {
 // Al abrirse una parte nueva, se le sugiere de una vez la fracción que
 // completa el entero (si existe una opción exacta), para que "así
 // sucesivamente" el cajero normalmente solo tenga que elegir el sabor.
-function bestDefaultFraction(remainingTwelfths: number): number {
+// Twelfths de las fracciones reales de una parte (excluye "Completa", que
+// solo tiene sentido si una sola parte cubre toda la pizza).
+const PART_TWELFTHS = [3, 4, 6, 8, 9] // 1/4, 1/3, 1/2, 2/3, 3/4
+
+// ¿Se puede llegar exactamente a 0 desde "remaining" usando como máximo
+// "partsLeft" fracciones más? Evita ofrecer combinaciones sin salida, como
+// 1/2 + 1/3, que dejarían un residuo de 1/6 imposible de completar.
+function canComplete(remaining: number, partsLeft: number): boolean {
+  if (remaining === 0) return true
+  if (partsLeft <= 0) return false
+  return PART_TWELFTHS.some((f) => f <= remaining && canComplete(remaining - f, partsLeft - 1))
+}
+
+function bestDefaultFraction(remainingTwelfths: number, partsLeftAfterThis: number): number {
   const exact = FRACTIONS.find((f) => f.twelfths === remainingTwelfths)
   if (exact) return exact.value
-  const fits = FRACTIONS.filter((f) => f.twelfths <= remainingTwelfths && f.twelfths > 0).sort(
-    (a, b) => b.twelfths - a.twelfths,
-  )
-  return fits[0]?.value ?? FRACTIONS[FRACTIONS.length - 1].value
+  const valid = FRACTIONS.filter(
+    (f) => f.twelfths <= remainingTwelfths && canComplete(remainingTwelfths - f.twelfths, partsLeftAfterThis),
+  ).sort((a, b) => b.twelfths - a.twelfths)
+  return valid[0]?.value ?? FRACTIONS[FRACTIONS.length - 1].value
 }
 
 interface PizzaPart {
@@ -207,7 +220,10 @@ export default function PedidoView() {
 
   function optionsForPart(index: number) {
     const remaining = remainingBeforeIndex(index)
-    return FRACTIONS.filter((f) => f.twelfths <= remaining)
+    const partsLeftAfterThis = MAX_PARTS - index - 1
+    return FRACTIONS.filter(
+      (f) => f.twelfths <= remaining && canComplete(remaining - f.twelfths, partsLeftAfterThis),
+    )
   }
 
   // Cambiar la fracción de una parte recorta lo que había después de ella
@@ -218,7 +234,8 @@ export default function PedidoView() {
       const next = prev.slice(0, index + 1).map((p, i) => (i === index ? { ...p, fraction: value } : p))
       const used = next.reduce((s, p) => s + twelfthsOf(p.fraction), 0)
       if (used < 12 && next.length < MAX_PARTS) {
-        next.push({ fraction: bestDefaultFraction(12 - used), flavor: "", extras: {} })
+        const partsLeftAfter = MAX_PARTS - next.length - 1
+        next.push({ fraction: bestDefaultFraction(12 - used, partsLeftAfter), flavor: "", extras: {} })
       }
       return next
     })
@@ -234,17 +251,22 @@ export default function PedidoView() {
       const next = prev.slice(0, index)
       const used = next.reduce((s, p) => s + twelfthsOf(p.fraction), 0)
       if (used < 12 && next.length < MAX_PARTS) {
-        next.push({ fraction: bestDefaultFraction(12 - used), flavor: "", extras: {} })
+        const partsLeftAfter = MAX_PARTS - next.length - 1
+        next.push({ fraction: bestDefaultFraction(12 - used, partsLeftAfter), flavor: "", extras: {} })
       }
       return next
     })
+  }
+
+  function partSliceCap(part: PizzaPart): number {
+    return Math.max(1, Math.round(part.fraction * slices))
   }
 
   function addExtraUnit(index: number, ingId: string) {
     setParts((prev) =>
       prev.map((p, i) => {
         if (i !== index) return p
-        if (extrasTotal(p) >= 10) return p
+        if (extrasTotal(p) >= partSliceCap(p)) return p
         return { ...p, extras: { ...p.extras, [ingId]: (p.extras[ingId] || 0) + 1 } }
       }),
     )
@@ -263,6 +285,10 @@ export default function PedidoView() {
         return { ...p, extras: { ...p.extras, [ingId]: current - 1 } }
       }),
     )
+  }
+
+  function clearPartExtras(index: number) {
+    setParts((prev) => prev.map((p, i) => (i === index ? { ...p, extras: {} } : p)))
   }
 
   function togglePizzaExtra(id: string) {
@@ -467,13 +493,22 @@ export default function PedidoView() {
                     </div>
                   </div>
 
-                  <div style={fieldLabelSt}>
-                    Ingredientes extra — Parte {i + 1} ({total}/10) — $20 c/u
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
+                    <div style={{ ...fieldLabelSt, marginBottom: 0 }}>
+                      Ingredientes extra — Parte {i + 1} ({total}/{partSliceCap(part)} rebanadas) — $20 c/u
+                    </div>
+                    {total > 0 && (
+                      <button onClick={() => clearPartExtras(i)}
+                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#DC2626", padding: 0 }}>
+                        Quitar todos
+                      </button>
+                    )}
                   </div>
                   <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
                     {ingredientItems.map((ing) => {
                       const qty = part.extras[ing.id] || 0
                       const sel = qty > 0
+                      const cap = partSliceCap(part)
                       return (
                         <div
                           key={ing.id}
@@ -485,11 +520,11 @@ export default function PedidoView() {
                         >
                           <button
                             onClick={() => addExtraUnit(i, ing.id)}
-                            disabled={!sel && total >= 10}
+                            disabled={!sel && total >= cap}
                             style={{
                               padding: "5px 10px", fontSize: 12, cursor: "pointer", border: "none",
                               background: sel ? "#FEF2F2" : "#F7F7F8", color: sel ? "#DC2626" : "#3F3F46",
-                              fontWeight: sel ? 600 : 400, opacity: !sel && total >= 10 ? 0.4 : 1,
+                              fontWeight: sel ? 600 : 400, opacity: !sel && total >= cap ? 0.4 : 1,
                               display: "flex", alignItems: "center", gap: 4,
                             }}
                           >
@@ -503,8 +538,8 @@ export default function PedidoView() {
                                 −
                               </button>
                               <span style={{ fontSize: 11.5, fontWeight: 700, color: "#DC2626", minWidth: 14, textAlign: "center" }}>{qty}</span>
-                              <button onClick={() => addExtraUnit(i, ing.id)} disabled={total >= 10}
-                                style={{ width: 22, height: '100%', border: "none", background: "none", cursor: total >= 10 ? "not-allowed" : "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13, opacity: total >= 10 ? 0.4 : 1 }}>
+                              <button onClick={() => addExtraUnit(i, ing.id)} disabled={total >= cap}
+                                style={{ width: 22, height: '100%', border: "none", background: "none", cursor: total >= cap ? "not-allowed" : "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13, opacity: total >= cap ? 0.4 : 1 }}>
                                 +
                               </button>
                             </div>
