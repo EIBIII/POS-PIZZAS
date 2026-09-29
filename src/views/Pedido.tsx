@@ -258,15 +258,10 @@ export default function PedidoView() {
     })
   }
 
-  function partSliceCap(part: PizzaPart): number {
-    return Math.max(1, Math.round(part.fraction * slices))
-  }
-
   function addExtraUnit(index: number, ingId: string) {
     setParts((prev) =>
       prev.map((p, i) => {
         if (i !== index) return p
-        if (extrasTotal(p) >= partSliceCap(p)) return p
         return { ...p, extras: { ...p.extras, [ingId]: (p.extras[ingId] || 0) + 1 } }
       }),
     )
@@ -313,31 +308,40 @@ export default function PedidoView() {
   }, 0)
   const totalPrice = basePrice + extraIngPrice + pizzaExtrasPrice
 
-  const allFlavorsSelected = parts.every((p) => p.flavor !== "")
-  const isValid = allFlavorsSelected && fractionsValid
-  const anyFlavorSelected = parts.some((p) => p.flavor !== "")
-  const firstMissingIndex = parts.findIndex((p) => p.flavor === "")
+  // Una parte queda definida por su sabor o, si no se eligió uno del menú
+  // (por ejemplo, una combinación de ingredientes que no existe como
+  // producto), por tener al menos un ingrediente extra.
+  const partIsDefined = (p: PizzaPart) => p.flavor !== "" || extrasTotal(p) > 0
+  const allPartsDefined = parts.every(partIsDefined)
+  const isValid = allPartsDefined && fractionsValid
+  const anyFlavorSelected = parts.some(partIsDefined)
+  const firstMissingIndex = parts.findIndex((p) => !partIsDefined(p))
 
   function handleAdd() {
     if (!isValid) return
     const sizeLabel = SIZES.find((s) => s.id === size)?.label
-    const primaryProduct = partsProducts[0]
-    if (!primaryProduct) return
+
+    function extrasNamesFor(p: PizzaPart) {
+      return Object.entries(p.extras)
+        .map(([id, qty]) => {
+          const ing = ingredientItems.find((ig) => ig.id === id)
+          if (!ing) return null
+          return qty > 1 ? `${ing.name} x${qty}` : ing.name
+        })
+        .filter(Boolean) as string[]
+    }
 
     const partsLabel = parts
       .map((p, i) => {
         const prod = partsProducts[i]
-        if (!prod) return ""
         const fracLabel = parts.length === 1 ? "" : `${FRACTIONS.find((f) => f.value === p.fraction)?.label} `
-        const extrasNames = Object.entries(p.extras)
-          .map(([id, qty]) => {
-            const ing = ingredientItems.find((ig) => ig.id === id)
-            if (!ing) return null
-            return qty > 1 ? `${ing.name} x${qty}` : ing.name
-          })
-          .filter(Boolean)
-        const extrasStr = extrasNames.length ? ` (+${extrasNames.join(", ")})` : ""
-        return `${fracLabel}${prod.name}${extrasStr}`
+        const extrasNames = extrasNamesFor(p)
+        if (prod) {
+          const extrasStr = extrasNames.length ? ` (+${extrasNames.join(", ")})` : ""
+          return `${fracLabel}${prod.name}${extrasStr}`
+        }
+        // Parte sin sabor del menú: se describe solo por sus ingredientes extra
+        return extrasNames.length ? `${fracLabel}${extrasNames.join(", ")}` : ""
       })
       .filter(Boolean)
       .join(" · ")
@@ -349,10 +353,11 @@ export default function PedidoView() {
       .filter(Boolean)
       .join(" · ")
 
+    const flavorNames = parts.map((_, i) => partsProducts[i]?.name).filter(Boolean) as string[]
     const name =
-      parts.length === 1
-        ? `${primaryProduct.name} ${sizeLabel}`
-        : `${parts.map((_, i) => partsProducts[i]?.name).filter(Boolean).join(" / ")} ${sizeLabel}`
+      flavorNames.length > 0
+        ? `${flavorNames.join(" / ")} ${sizeLabel}`
+        : `Pizza personalizada ${sizeLabel}`
 
     addTicketItem({
       id: `pizza-${Date.now()}`,
@@ -493,53 +498,50 @@ export default function PedidoView() {
                     </div>
                   </div>
 
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 6 }}>
-                    <div style={{ ...fieldLabelSt, marginBottom: 0 }}>
-                      Ingredientes extra — Parte {i + 1} ({total}/{partSliceCap(part)} rebanadas) — $20 c/u
-                    </div>
-                    {total > 0 && (
-                      <button onClick={() => clearPartExtras(i)}
-                        style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#DC2626", padding: 0 }}>
-                        Quitar todos
-                      </button>
-                    )}
+                  <div style={{ ...fieldLabelSt, marginBottom: total > 0 ? 4 : 6 }}>
+                    Ingredientes extra — Parte {i + 1} ({total}) — $20 c/u
                   </div>
-                  <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                  {total > 0 && (
+                    <button onClick={() => clearPartExtras(i)}
+                      style={{ display: "block", marginBottom: 8, background: "none", border: "none", cursor: "pointer", fontSize: 11, fontWeight: 600, color: "#DC2626", padding: 0 }}>
+                      Quitar todos
+                    </button>
+                  )}
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 6 }}>
                     {ingredientItems.map((ing) => {
                       const qty = part.extras[ing.id] || 0
                       const sel = qty > 0
-                      const cap = partSliceCap(part)
                       return (
                         <div
                           key={ing.id}
                           style={{
-                            display: "flex", alignItems: "center", gap: 0,
+                            display: "flex", alignItems: "stretch", justifyContent: "space-between",
                             borderRadius: 8, overflow: "hidden",
                             border: `1px solid ${sel ? "#FCA5A5" : "#E4E4E7"}`,
                           }}
                         >
                           <button
                             onClick={() => addExtraUnit(i, ing.id)}
-                            disabled={!sel && total >= cap}
                             style={{
-                              padding: "5px 10px", fontSize: 12, cursor: "pointer", border: "none",
+                              flex: 1, minWidth: 0, padding: "5px 8px", fontSize: 12, cursor: "pointer", border: "none",
                               background: sel ? "#FEF2F2" : "#F7F7F8", color: sel ? "#DC2626" : "#3F3F46",
-                              fontWeight: sel ? 600 : 400, opacity: !sel && total >= cap ? 0.4 : 1,
+                              fontWeight: sel ? 600 : 400,
                               display: "flex", alignItems: "center", gap: 4,
+                              overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap",
                             }}
                           >
                             {sel && <Icon name="check" size={10} color="#DC2626" strokeWidth={2.5} />}
-                            {ing.name}
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ing.name}</span>
                           </button>
                           {sel && (
-                            <div style={{ display: "flex", alignItems: "center", background: "#FEF2F2", borderLeft: "1px solid #FCA5A5" }}>
+                            <div style={{ display: "flex", alignItems: "center", background: "#FEF2F2", borderLeft: "1px solid #FCA5A5", flexShrink: 0 }}>
                               <button onClick={() => removeExtraUnit(i, ing.id)}
-                                style={{ width: 22, height: '100%', border: "none", background: "none", cursor: "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13 }}>
+                                style={{ width: 22, border: "none", background: "none", cursor: "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13 }}>
                                 −
                               </button>
                               <span style={{ fontSize: 11.5, fontWeight: 700, color: "#DC2626", minWidth: 14, textAlign: "center" }}>{qty}</span>
-                              <button onClick={() => addExtraUnit(i, ing.id)} disabled={total >= cap}
-                                style={{ width: 22, height: '100%', border: "none", background: "none", cursor: total >= cap ? "not-allowed" : "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13, opacity: total >= cap ? 0.4 : 1 }}>
+                              <button onClick={() => addExtraUnit(i, ing.id)}
+                                style={{ width: 22, border: "none", background: "none", cursor: "pointer", color: "#DC2626", fontWeight: 700, fontSize: 13 }}>
                                 +
                               </button>
                             </div>
@@ -750,7 +752,7 @@ export default function PedidoView() {
                   }}
                 >
                   {firstMissingIndex !== -1
-                    ? `Selecciona sabor — Parte ${firstMissingIndex + 1}`
+                    ? `Elige un sabor o un ingrediente — Parte ${firstMissingIndex + 1}`
                     : !fractionsValid
                       ? `Ajusta las fracciones (Total: ${totalLabel})`
                       : `Agregar al ticket — $${totalPrice}`}
@@ -761,7 +763,7 @@ export default function PedidoView() {
             {!anyFlavorSelected && (
               <div style={{ background: "#FEF2F2", border: "1px dashed #FCA5A5", borderRadius: 12, padding: 20, textAlign: "center" }}>
                 <Icon name="pizza" size={32} color="#FCA5A5" />
-                <div style={{ fontSize: 13, color: "#DC2626", marginTop: 8, fontWeight: 500 }}>Selecciona un sabor del menú</div>
+                <div style={{ fontSize: 13, color: "#DC2626", marginTop: 8, fontWeight: 500 }}>Selecciona un sabor o un ingrediente extra</div>
               </div>
             )}
           </div>
