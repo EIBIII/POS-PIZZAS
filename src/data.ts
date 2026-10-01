@@ -17,6 +17,7 @@ export const DEFAULT_SETTINGS: BusinessSettings = {
   language: 'es',
   autoLogout: 30,
   initialFloat: 500,
+  slicePrice: 25,
   ticketHeader: 'PIZZAIAS',
   ticketFooter: 'Gracias por su visita',
   ticketShowLogo: true,

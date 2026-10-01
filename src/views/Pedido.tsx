@@ -212,6 +212,14 @@ export default function PedidoView() {
   const [notes, setNotes] = useState("")
 
   const ingredientItems = ingredients.filter((i) => i.categoryId === "cat1")
+
+  function extraPriceOf(ingId: string): number {
+    return ingredientItems.find((i) => i.id === ingId)?.customPrice ?? 20
+  }
+
+  function extrasPrice(part: PizzaPart): number {
+    return Object.entries(part.extras).reduce((s, [id, qty]) => s + extraPriceOf(id) * qty, 0)
+  }
   const partsProducts = parts.map((p) => products.find((pr) => pr.id === p.flavor))
 
   function remainingBeforeIndex(index: number): number {
@@ -301,7 +309,7 @@ export default function PedidoView() {
   // base de toda la pizza.
   const selectedPrices = partsProducts.filter(Boolean).map((p) => p!.prices[size])
   const basePrice = selectedPrices.length ? Math.max(...selectedPrices) : 0
-  const extraIngPrice = parts.reduce((s, p) => s + extrasTotal(p) * 20, 0)
+  const extraIngPrice = parts.reduce((s, p) => s + extrasPrice(p), 0)
   const pizzaExtrasPrice = pizzaExtras.reduce((s, id) => {
     const ex = PIZZA_EXTRAS_LIST.find((e) => e.id === id)
     return s + (ex?.price || 0)
@@ -359,6 +367,16 @@ export default function PedidoView() {
         ? `${flavorNames.join(" / ")} ${sizeLabel}`
         : `Pizza personalizada ${sizeLabel}`
 
+    // Estructura por parte (fracción, sabor, ingredientes extra con cantidad)
+    // para que Cola de Pedidos pueda mostrar cada parte por separado.
+    const pizzaParts = parts.map((p, i) => ({
+      fractionLabel: parts.length === 1 ? "" : FRACTIONS.find((f) => f.value === p.fraction)?.label || "",
+      flavorName: partsProducts[i]?.name || "",
+      extras: Object.entries(p.extras)
+        .map(([id, qty]) => ({ name: ingredientItems.find((ig) => ig.id === id)?.name || "", qty }))
+        .filter((e) => e.name),
+    }))
+
     addTicketItem({
       id: `pizza-${Date.now()}`,
       type: "pizza",
@@ -368,6 +386,7 @@ export default function PedidoView() {
       total: totalPrice,
       size,
       details,
+      pizzaParts,
     })
 
     setParts([{ fraction: 1, flavor: "", extras: {} }])
@@ -499,7 +518,7 @@ export default function PedidoView() {
                   </div>
 
                   <div style={{ ...fieldLabelSt, marginBottom: total > 0 ? 4 : 6 }}>
-                    Ingredientes extra — Parte {i + 1} ({total}) — $20 c/u
+                    Ingredientes extra — Parte {i + 1} ({total})
                   </div>
                   {total > 0 && (
                     <button onClick={() => clearPartExtras(i)}
@@ -531,7 +550,9 @@ export default function PedidoView() {
                             }}
                           >
                             {sel && <Icon name="check" size={10} color="#DC2626" strokeWidth={2.5} />}
-                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ing.name}</span>
+                            <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                              {ing.name} <span style={{ opacity: 0.6 }}>${extraPriceOf(ing.id)}</span>
+                            </span>
                           </button>
                           {sel && (
                             <div style={{ display: "flex", alignItems: "center", background: "#FEF2F2", borderLeft: "1px solid #FCA5A5", flexShrink: 0 }}>
@@ -720,7 +741,7 @@ export default function PedidoView() {
                         <SummaryLine
                           key={`extra-${i}`}
                           label={`${parts.length > 1 ? `Parte ${i + 1}: ` : ""}${extrasTotal(p)} extra${extrasTotal(p) > 1 ? "s" : ""} ingrediente`}
-                          value={extrasTotal(p) * 20}
+                          value={extrasPrice(p)}
                         />
                       ),
                   )}

@@ -2,11 +2,10 @@ import { useApp } from '../context'
 import Ticket from '../components/Ticket'
 import Icon from '../components/Icon'
 
-const SLICE_PRICE = 25
-
 export default function MainPOS() {
-  const { slices, setSlices, addTicketItem, orders, setView, loadOrderIntoTicket } = useApp()
+  const { slices, setSlices, addTicketItem, orders, setView, loadOrderIntoTicket, settings } = useApp()
   const activeOrders = orders.filter(o => !['entregado', 'cancelado'].includes(o.status))
+  const slicePrice = settings.slicePrice
 
   function addSlicesToTicket() {
     if (slices <= 0) return
@@ -15,8 +14,8 @@ export default function MainPOS() {
       type: 'slice',
       name: `Rebanada${slices > 1 ? 's' : ''} de pizza`,
       quantity: slices,
-      unitPrice: SLICE_PRICE,
-      total: slices * SLICE_PRICE,
+      unitPrice: slicePrice,
+      total: slices * slicePrice,
     })
     setSlices(1)
   }
@@ -50,7 +49,7 @@ export default function MainPOS() {
           {/* Slice counter */}
           <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 16, padding: '28px 24px', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
             <div style={{ fontSize: 10.5, fontWeight: 700, color: '#A1A1AA', letterSpacing: '0.1em', textTransform: 'uppercase', marginBottom: 20, textAlign: 'center' }}>
-              Rebanadas — ${SLICE_PRICE} c/u
+              Rebanadas — ${slicePrice} c/u
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 40 }}>
@@ -72,7 +71,7 @@ export default function MainPOS() {
                   {slices}
                 </div>
                 <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 22, fontWeight: 700, color: '#DC2626', marginTop: 4 }}>
-                  ${slices * SLICE_PRICE}
+                  ${slices * slicePrice}
                 </div>
               </div>
 

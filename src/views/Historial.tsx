@@ -24,7 +24,7 @@ const PAY_COLORS: Record<string, [string, string]> = {
 const MANAGER_ROLES = ['super_admin', 'admin', 'gerente']
 
 export default function HistorialView() {
-  const { orders, updateOrder, currentUser, users, addAudit, cashRegisters } = useApp()
+  const { orders, updateOrder, currentUser, users, addAudit, cashRegisters, loadOrderIntoTicket } = useApp()
   const [search, setSearch] = useState('')
   const [filterStatus, setFilterStatus] = useState('all')
   const [filterPay, setFilterPay] = useState('all')
@@ -196,6 +196,12 @@ export default function HistorialView() {
                   </td>
                   <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 4 }}>
+                      {isToday(o.createdAt) && o.status !== 'cancelado' && (
+                        <button onClick={() => loadOrderIntoTicket(o)}
+                          style={{ padding: '3px 8px', fontSize: 10.5, background: '#F7F7F8', color: '#3F3F46', border: '1px solid #E4E4E7', borderRadius: 5, cursor: 'pointer', fontWeight: 600 }}>
+                          Editar
+                        </button>
+                      )}
                       {o.status !== 'cancelado' && o.status !== 'entregado' && (
                         <button onClick={() => { setSelected(o); requestManagerAction('cancel') }}
                           style={{ padding: '3px 8px', fontSize: 10.5, background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 5, cursor: 'pointer', fontWeight: 600 }}>

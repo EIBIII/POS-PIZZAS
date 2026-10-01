@@ -10,12 +10,54 @@ const PAY_STATUS = {
   reembolsado: { label: 'Reembolsado', bg: '#EFF6FF', color: '#2563EB', border: '#93C5FD' },
 }
 
+const MANAGER_ROLES = ['super_admin', 'admin', 'gerente']
+
 export default function Ticket() {
-  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, updateOrder, orders, generateOrderNumber, currentUser, recalledOrderId, consumption, setConsumption, deliveryAddress, setDeliveryAddress, deliveryPhone, setDeliveryPhone, sidebarOpen } = useApp()
+  const { ticketItems, removeTicketItem, updateItemQty, clearTicket, activePromo, setActivePromo, promotions, addOrder, updateOrder, orders, generateOrderNumber, currentUser, users, addAudit, recalledOrderId, consumption, setConsumption, deliveryAddress, setDeliveryAddress, deliveryPhone, setDeliveryPhone, sidebarOpen } = useApp()
   const [payStatus, setPayStatus] = useState<keyof typeof PAY_STATUS>('pendiente')
   const [payMethod, setPayMethod] = useState<'efectivo' | 'tarjeta'>('efectivo')
   const [showConfirm, setShowConfirm] = useState(false)
   const [cashReceived, setCashReceived] = useState('')
+  const [showPromoPIN, setShowPromoPIN] = useState<string | null>(null)
+  const [promoPin, setPromoPin] = useState('')
+  const [promoPinError, setPromoPinError] = useState('')
+  const [scheduleEnabled, setScheduleEnabled] = useState(false)
+  const [scheduledFor, setScheduledFor] = useState('')
+
+  const isManager = MANAGER_ROLES.includes(currentUser?.role || '')
+
+  function requestPromo(promoId: string) {
+    // Quitar una promo activa nunca requiere autorización, solo aplicar una nueva.
+    if (activePromo?.id === promoId) {
+      setActivePromo(null)
+      return
+    }
+    if (isManager) {
+      setActivePromo(promotions.find(p => p.id === promoId) || null)
+      return
+    }
+    setPromoPin('')
+    setPromoPinError('')
+    setShowPromoPIN(promoId)
+  }
+
+  function handlePromoPINDigit(d: string) {
+    const next = promoPin + d
+    setPromoPin(next)
+    if (next.length === 4) {
+      const manager = users.find(u => MANAGER_ROLES.includes(u.role) && u.pin === next && u.active)
+      if (manager) {
+        const promo = promotions.find(p => p.id === showPromoPIN)
+        setActivePromo(promo || null)
+        addAudit({ action: 'PIN gerente validado', module: 'Ticket', detail: `${manager.name} autorizó promoción ${promo?.name || ''}`, user: currentUser?.name || '' })
+        setShowPromoPIN(null)
+        setPromoPin('')
+      } else {
+        setPromoPinError('PIN incorrecto')
+        setTimeout(() => { setPromoPin(''); setPromoPinError('') }, 1200)
+      }
+    }
+  }
 
   const recalledOrder = recalledOrderId ? orders.find(o => o.id === recalledOrderId) ?? null : null
 
@@ -46,16 +88,23 @@ export default function Ticket() {
   function handleCobrar() {
     if (!ticketItems.length || cashMissing || deliveryMissing) return
 
+    const isPedido = ticketItems.some(i => i.type === 'pizza')
+
     if (recalledOrderId) {
-      // Se está cobrando un pedido pendiente que ya estaba en cola/pedidos activos:
-      // solo se actualiza su estado de pago (y se marca entregado si ya se pagó).
+      // Se está cobrando o editando un pedido que ya existía: se actualizan
+      // también sus artículos y totales (por si se agregó/quitó algo), no
+      // solo el estado de pago.
       updateOrder(recalledOrderId, {
+        items: [...ticketItems],
+        subtotal, discount, total,
         paymentMethod: payMethod,
         paymentStatus: payStatus,
-        ...(payStatus === 'pagado' ? { status: 'entregado' } : {}),
+        // Al pagarse: si no lleva pizza ya no hay nada pendiente (venta de
+        // mostrador entregada de una vez); si lleva pizza sigue su curso en cocina.
+        ...(payStatus === 'pagado' ? { status: isPedido ? 'confirmado' : 'entregado' } : {}),
+        updatedAt: new Date(),
       })
     } else {
-      const isPedido = ticketItems.some(i => i.type === 'pizza')
       const order: Order = {
         id: `o${Date.now()}`, orderNumber: generateOrderNumber(),
         consumption,
@@ -63,11 +112,16 @@ export default function Ticket() {
         items: [...ticketItems],
         subtotal, discount, total,
         paymentMethod: payMethod, paymentStatus: payStatus,
-        // Si queda pendiente de pago: los pedidos con pizza van a la cola de
-        // cocina (nuevo); las rebanadas no requieren preparación, así que
-        // pasan directo a "listo" y aparecen en Pedidos Activos hasta que
-        // el cliente pase por ellas y se cobren desde aquí.
-        status: payStatus === 'pendiente' ? (isPedido ? 'nuevo' : 'listo') : 'confirmado',
+        // Pendiente: los pedidos con pizza van a la cola de cocina (nuevo);
+        // las rebanadas no requieren preparación y pasan directo a "listo",
+        // esperando en Pedidos Activos a que el cliente pase a pagar.
+        // Pagado: si lleva pizza sigue a cocina (confirmado); si es solo
+        // venta de mostrador (sin pizza) ya no queda nada pendiente y se
+        // entrega de una vez, por lo que desaparece de Pedidos Activos.
+        status: payStatus === 'pendiente'
+          ? (isPedido ? 'nuevo' : 'listo')
+          : (isPedido ? 'confirmado' : 'entregado'),
+        ...(scheduleEnabled && scheduledFor ? { scheduledFor: new Date(scheduledFor) } : {}),
         createdBy: currentUser?.id || '', createdAt: new Date(), updatedAt: new Date(),
       }
       addOrder(order)
@@ -76,6 +130,8 @@ export default function Ticket() {
     setShowConfirm(false)
     setCashReceived('')
     setPayStatus('pendiente')
+    setScheduleEnabled(false)
+    setScheduledFor('')
   }
 
   const status = PAY_STATUS[payStatus]
@@ -183,21 +239,44 @@ export default function Ticket() {
         )}
       </div>
 
+      {/* Programar pedido */}
+      {!recalledOrder && (
+        <div style={{ padding: '8px 14px', background: '#F7F7F8', borderBottom: '1px solid #E4E4E7' }}>
+          <button onClick={() => setScheduleEnabled(v => !v)}
+            style={{ display: 'flex', alignItems: 'center', gap: 6, background: 'none', border: 'none', cursor: 'pointer', padding: 0 }}>
+            <div style={{
+              width: 32, height: 18, borderRadius: 10, background: scheduleEnabled ? '#DC2626' : '#E4E4E7',
+              position: 'relative', transition: 'background 0.15s', flexShrink: 0,
+            }}>
+              <div style={{ width: 14, height: 14, borderRadius: '50%', background: '#fff', position: 'absolute', top: 2, left: scheduleEnabled ? 16 : 2, transition: 'left 0.15s' }} />
+            </div>
+            <span style={{ fontSize: 11.5, fontWeight: 600, color: '#3F3F46' }}>Programar para después</span>
+          </button>
+          {scheduleEnabled && (
+            <input type="datetime-local" value={scheduledFor} onChange={e => setScheduledFor(e.target.value)}
+              style={{ marginTop: 8, width: '100%', padding: '7px 10px', fontSize: 12.5, background: '#FFFFFF', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 7, outline: 'none', boxSizing: 'border-box' }} />
+          )}
+        </div>
+      )}
+
       {/* Promos */}
       {promotions.filter(p => p.active).length > 0 && (
         <div style={{ padding: '8px 14px', background: '#FFFBEB', borderBottom: '1px solid #FDE68A' }}>
           <div style={{ fontSize: 10, fontWeight: 700, color: '#D97706', letterSpacing: '0.06em', marginBottom: 5 }}>PROMOCIONES</div>
           <div style={{ display: 'flex', gap: 5, flexWrap: 'wrap' }}>
             {promotions.filter(p => p.active).map(p => (
-              <button key={p.id} onClick={() => setActivePromo(activePromo?.id === p.id ? null : p)}
+              <button key={p.id} onClick={() => requestPromo(p.id)}
                 style={{
                   padding: '3px 8px', fontSize: 10.5, borderRadius: 99, cursor: 'pointer', fontWeight: 500,
                   background: activePromo?.id === p.id ? '#D97706' : '#FEF3C7',
                   color: activePromo?.id === p.id ? '#fff' : '#92400E',
                   border: `1px solid ${activePromo?.id === p.id ? '#D97706' : '#FCD34D'}`,
-                  transition: 'all 0.12s',
+                  display: 'flex', alignItems: 'center', gap: 4,
                 }}
-              >{p.name}</button>
+              >
+                {activePromo?.id !== p.id && !isManager && <Icon name="lock" size={9} color="#92400E" />}
+                {p.name}
+              </button>
             ))}
           </div>
         </div>
@@ -331,6 +410,44 @@ export default function Ticket() {
               <button onClick={handleCobrar}
                 style={{ flex: 1, padding: '11px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 10, cursor: 'pointer', fontFamily: 'Cooper Black, serif', fontSize: 14 }}>
                 Confirmar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manager PIN modal — autoriza aplicar una promoción */}
+      {showPromoPIN && (
+        <div className="overlay anim-fade">
+          <div className="anim-scale" style={{ background: '#FFFFFF', borderRadius: 20, padding: 28, width: 300, textAlign: 'center', boxShadow: '0 24px 64px rgba(0,0,0,0.15)' }}>
+            <div style={{ width: 52, height: 52, background: '#FFFBEB', borderRadius: 14, display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 12px' }}>
+              <Icon name="lock" size={24} color="#D97706" />
+            </div>
+            <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 17, color: '#18181B' }}>PIN Gerente</div>
+            <div style={{ fontSize: 12, color: '#71717A', marginTop: 3, marginBottom: 16 }}>Autorizar promoción</div>
+
+            <div style={{ display: 'flex', justifyContent: 'center', gap: 10, marginBottom: 14 }}>
+              {[0, 1, 2, 3].map(i => (
+                <div key={i} style={{ width: 13, height: 13, borderRadius: '50%', background: i < promoPin.length ? '#D97706' : '#E4E4E7' }} />
+              ))}
+            </div>
+            {promoPinError && <div style={{ fontSize: 12, color: '#DC2626', marginBottom: 10, fontWeight: 600 }}>{promoPinError}</div>}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 6, marginBottom: 10 }}>
+              {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(d => (
+                <button key={d} onClick={() => handlePromoPINDigit(d)}
+                  style={{ padding: '11px', fontSize: 16, fontFamily: 'Cooper Black, serif', background: '#F7F7F8', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 9, cursor: 'pointer' }}
+                >{d}</button>
+              ))}
+              <button onClick={() => { setShowPromoPIN(null); setPromoPin('') }}
+                style={{ padding: '11px', background: '#FEF2F2', color: '#DC2626', border: '1px solid #FECACA', borderRadius: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="x" size={15} color="#DC2626" />
+              </button>
+              <button onClick={() => handlePromoPINDigit('0')}
+                style={{ padding: '11px', fontSize: 16, fontFamily: 'Cooper Black, serif', background: '#F7F7F8', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 9, cursor: 'pointer' }}>0</button>
+              <button onClick={() => setPromoPin(p => p.slice(0, -1))}
+                style={{ padding: '11px', background: '#F7F7F8', border: '1px solid #E4E4E7', borderRadius: 9, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Icon name="chevronLeft" size={16} color="#71717A" />
               </button>
             </div>
           </div>

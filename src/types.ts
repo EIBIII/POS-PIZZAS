@@ -11,6 +11,7 @@ export interface BusinessSettings {
   language: string
   autoLogout: number
   initialFloat: number
+  slicePrice: number
   ticketHeader: string
   ticketFooter: string
   ticketShowLogo: boolean
@@ -127,6 +128,12 @@ export interface Extra {
   stock?: number
 }
 
+export interface TicketPizzaPart {
+  fractionLabel: string
+  flavorName: string
+  extras: { name: string; qty: number }[]
+}
+
 export interface TicketItem {
   id: string
   type: 'slice' | 'pizza' | 'extra'
@@ -136,6 +143,7 @@ export interface TicketItem {
   total: number
   details?: string
   size?: PizzaSize
+  pizzaParts?: TicketPizzaPart[]
 }
 
 export interface Promotion {
@@ -172,6 +180,7 @@ export interface Order {
   cancelledBy?: string
   refundReason?: string
   refundedBy?: string
+  scheduledFor?: Date
 }
 
 export interface AuditEntry {

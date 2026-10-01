@@ -90,30 +90,25 @@ export default function Extras() {
 }
 
 function ExtraCard({ ingredient, onAdd }: { ingredient: any; onAdd: () => void }) {
-  const [hover, setHover] = useState(false)
   const icon = getIngredientIcon(ingredient)
   return (
     <button
       onClick={onAdd}
-      onMouseEnter={() => setHover(true)}
-      onMouseLeave={() => setHover(false)}
       style={{
         background: '#FFFFFF',
-        border: `2px solid ${hover ? '#DC2626' : '#E4E4E7'}`,
+        border: '2px solid #E4E4E7',
         borderRadius: 14, padding: 16,
         display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
-        cursor: 'pointer', transition: 'all 0.14s',
-        transform: hover ? 'translateY(-2px)' : 'none',
-        boxShadow: hover ? '0 8px 24px rgba(220,38,38,0.1)' : '0 1px 3px rgba(0,0,0,0.04)',
+        cursor: 'pointer',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
       }}
     >
       <div style={{
         width: 52, height: 52, borderRadius: 14,
-        background: hover ? '#FEF2F2' : '#F7F7F8',
+        background: '#F7F7F8',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
-        transition: 'background 0.14s',
       }}>
-        <Icon name={icon} size={24} color={hover ? '#DC2626' : '#71717A'} />
+        <Icon name={icon} size={24} color="#71717A" />
       </div>
       <div>
         <div style={{ fontSize: 13.5, fontWeight: 700, color: '#18181B', textAlign: 'center', lineHeight: 1.2 }}>{ingredient.name}</div>

@@ -15,7 +15,8 @@ const BLANK_PRODUCT: Omit<Product, 'id'> = {
 }
 
 export default function Productos() {
-  const { products, setProducts, ingredients } = useApp()
+  const { products, setProducts, ingredients, setIngredients, settings, setSettings } = useApp()
+  const [mode, setMode] = useState<'pizzas' | 'precios'>('pizzas')
   const [filter, setFilter] = useState<'todos' | 'sencillas' | 'especialidades'>('todos')
   const [selected, setSelected] = useState<Product | null>(null)
   const [isNew, setIsNew] = useState(false)
@@ -72,17 +73,79 @@ export default function Productos() {
   const pizzaIngredients = ingredients.filter(i => i.categoryId === 'cat1')
   const showPanel = selected !== null || isNew
 
+  function setExtraPrice(ingredientId: string, price: number) {
+    setIngredients(ingredients.map(i => i.id === ingredientId ? { ...i, customPrice: price } : i))
+  }
+
   return (
     <div style={{ height: '100vh', display: 'flex', flexDirection: 'column', background: '#F7F7F8' }}>
       {/* Header */}
       <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '14px 24px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexShrink: 0 }}>
         <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 20, color: '#18181B' }}>Productos</div>
-        <button onClick={openNew}
-          style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 13.5, fontWeight: 700, boxShadow: '0 2px 8px rgba(220,38,38,0.25)' }}>
-          <Icon name="plus" size={15} color="#fff" strokeWidth={2.5} /> Nuevo producto
-        </button>
+        {mode === 'pizzas' && (
+          <button onClick={openNew}
+            style={{ display: 'flex', alignItems: 'center', gap: 7, padding: '8px 16px', background: '#DC2626', color: '#fff', border: 'none', borderRadius: 9, cursor: 'pointer', fontSize: 13.5, fontWeight: 700, boxShadow: '0 2px 8px rgba(220,38,38,0.25)' }}>
+            <Icon name="plus" size={15} color="#fff" strokeWidth={2.5} /> Nuevo producto
+          </button>
+        )}
       </div>
 
+      {/* Mode switch */}
+      <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '0 24px', display: 'flex', flexShrink: 0 }}>
+        {([['pizzas', 'Pizzas'], ['precios', 'Precios de extras y rebanada']] as const).map(([id, label]) => (
+          <button key={id} onClick={() => setMode(id)}
+            style={{ padding: '12px 20px', fontSize: 13.5, fontWeight: 600, background: 'none', border: 'none', cursor: 'pointer', color: mode === id ? '#DC2626' : '#A1A1AA', borderBottom: `3px solid ${mode === id ? '#DC2626' : 'transparent'}` }}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {mode === 'precios' ? (
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          <div style={{ maxWidth: 640 }}>
+            <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 14, padding: 20, marginBottom: 20 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#A1A1AA', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 12 }}>
+                Valor de la rebanada (Punto de Venta)
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 14, color: '#71717A' }}>$</span>
+                <input type="number" value={settings.slicePrice}
+                  onChange={e => setSettings({ ...settings, slicePrice: Number(e.target.value) || 0 })}
+                  style={{ width: 100, padding: '8px 12px', borderRadius: 9, border: '1.5px solid #E4E4E7', fontSize: 14, fontFamily: 'JetBrains Mono, monospace', outline: 'none' }} />
+                <span style={{ fontSize: 12, color: '#A1A1AA' }}>por rebanada, se usa en la pantalla Principal</span>
+              </div>
+            </div>
+
+            <div style={{ background: '#FFFFFF', border: '1px solid #E4E4E7', borderRadius: 14, padding: 20 }}>
+              <div style={{ fontSize: 10.5, fontWeight: 700, color: '#A1A1AA', letterSpacing: '0.08em', textTransform: 'uppercase', marginBottom: 4 }}>
+                Precio por ingrediente extra
+              </div>
+              <div style={{ fontSize: 12, color: '#A1A1AA', marginBottom: 16 }}>
+                Cada ingrediente puede tener su propio precio al agregarse como extra en Pedido o Extras (antes todos costaban lo mismo).
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                {pizzaIngredients.map(ing => (
+                  <div key={ing.id} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '9px 14px', background: '#F7F7F8', borderRadius: 9 }}>
+                    <span style={{ fontSize: 13.5, fontWeight: 600, color: '#18181B' }}>{ing.name}</span>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ fontSize: 13, color: '#71717A' }}>$</span>
+                      <input type="number" value={ing.customPrice ?? 20}
+                        onChange={e => setExtraPrice(ing.id, Number(e.target.value) || 0)}
+                        style={{ width: 70, padding: '5px 8px', textAlign: 'right', borderRadius: 7, border: '1.5px solid #E4E4E7', fontSize: 13, fontFamily: 'JetBrains Mono, monospace', outline: 'none' }} />
+                    </div>
+                  </div>
+                ))}
+                {pizzaIngredients.length === 0 && (
+                  <div style={{ fontSize: 12.5, color: '#A1A1AA', textAlign: 'center', padding: '20px 0' }}>
+                    No hay ingredientes en la categoría de extras todavía.
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : (
+      <>
       {/* Filters */}
       <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '0 24px', display: 'flex', flexShrink: 0 }}>
         {([['todos', 'Todos'], ['sencillas', 'Sencillas'], ['especialidades', 'Especialidades']] as const).map(([id, label]) => (
@@ -226,6 +289,8 @@ export default function Productos() {
           </div>
         )}
       </div>
+      </>
+      )}
     </div>
   )
 }
