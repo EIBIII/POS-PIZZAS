@@ -1,0 +1,122 @@
+import { useState } from 'react'
+import { useApp } from '../context'
+import Icon from '../components/Icon'
+import Ticket from '../components/Ticket'
+import { CATEGORY_ICONS, getIngredientIcon } from '../productIcon'
+
+export default function Extras() {
+  const { ingredients, ingredientCategories, addTicketItem } = useApp()
+  const [activeCat, setActiveCat] = useState<string>('todos')
+
+  const nonIngredientCats = ingredientCategories.filter(c => c.id !== 'cat1')
+  const filtered = ingredients.filter(i =>
+    nonIngredientCats.some(c => c.id === i.categoryId) && i.stock > 0 &&
+    (activeCat === 'todos' || i.categoryId === activeCat)
+  )
+
+  function addExtra(ing: typeof ingredients[0]) {
+    addTicketItem({
+      id: `extra-${ing.id}-${Date.now()}`,
+      type: 'extra',
+      name: ing.name,
+      quantity: 1,
+      unitPrice: ing.customPrice ?? ing.cost,
+      total: ing.customPrice ?? ing.cost,
+    })
+  }
+
+  return (
+    <div style={{ display: 'flex', height: '100vh', overflow: 'hidden' }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', background: '#F7F7F8', overflow: 'hidden' }}>
+        {/* Header */}
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '14px 24px', display: 'flex', alignItems: 'center', gap: 12, flexShrink: 0 }}>
+          <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 20, color: '#18181B' }}>Extras</div>
+          <div style={{ fontSize: 12.5, color: '#A1A1AA', marginLeft: 4 }}>Bebidas y complementos</div>
+        </div>
+
+        {/* Category tabs */}
+        <div style={{ background: '#FFFFFF', borderBottom: '1px solid #E4E4E7', padding: '0 24px', display: 'flex', gap: 2, flexShrink: 0, overflowX: 'auto' }}>
+          <button onClick={() => setActiveCat('todos')}
+            style={{
+              padding: '12px 18px', fontSize: 13.5, fontWeight: 600,
+              background: 'none', border: 'none', cursor: 'pointer',
+              color: activeCat === 'todos' ? '#DC2626' : '#A1A1AA',
+              borderBottom: `3px solid ${activeCat === 'todos' ? '#DC2626' : 'transparent'}`,
+              display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+            }}
+          >
+            <Icon name="shoppingBag" size={14} color={activeCat === 'todos' ? '#DC2626' : '#A1A1AA'} />
+            Todos
+          </button>
+          {nonIngredientCats.map(cat => {
+            const active = activeCat === cat.id
+            return (
+              <button key={cat.id} onClick={() => setActiveCat(cat.id)}
+                style={{
+                  padding: '12px 18px', fontSize: 13.5, fontWeight: 600,
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  color: active ? cat.color : '#A1A1AA',
+                  borderBottom: `3px solid ${active ? cat.color : 'transparent'}`,
+                  display: 'flex', alignItems: 'center', gap: 7, whiteSpace: 'nowrap',
+                }}
+              >
+                <Icon name={CATEGORY_ICONS[cat.id] || 'tag'} size={14} color={active ? cat.color : '#A1A1AA'} />
+                {cat.name}
+              </button>
+            )
+          })}
+        </div>
+
+        {/* Products grid */}
+        <div style={{ flex: 1, overflowY: 'auto', padding: 24 }}>
+          {filtered.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 60, color: '#A1A1AA' }}>
+              <Icon name="package" size={40} color="#D4D4D8" />
+              <div style={{ fontSize: 14, marginTop: 12 }}>Sin productos disponibles</div>
+            </div>
+          ) : (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 14 }}>
+              {filtered.map(ing => (
+                <ExtraCard key={ing.id} ingredient={ing} onAdd={() => addExtra(ing)} />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <Ticket />
+    </div>
+  )
+}
+
+function ExtraCard({ ingredient, onAdd }: { ingredient: any; onAdd: () => void }) {
+  const icon = getIngredientIcon(ingredient)
+  return (
+    <button
+      onClick={onAdd}
+      style={{
+        background: '#FFFFFF',
+        border: '2px solid #E4E4E7',
+        borderRadius: 14, padding: 16,
+        display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 10,
+        cursor: 'pointer',
+        boxShadow: '0 1px 3px rgba(0,0,0,0.04)',
+      }}
+    >
+      <div style={{
+        width: 52, height: 52, borderRadius: 14,
+        background: '#F7F7F8',
+        display: 'flex', alignItems: 'center', justifyContent: 'center',
+      }}>
+        <Icon name={icon} size={24} color="#71717A" />
+      </div>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 700, color: '#18181B', textAlign: 'center', lineHeight: 1.2 }}>{ingredient.name}</div>
+        <div style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 15, fontWeight: 700, color: '#DC2626', textAlign: 'center', marginTop: 5 }}>
+          ${ingredient.customPrice ?? ingredient.cost}
+        </div>
+        <div style={{ fontSize: 11, color: '#A1A1AA', textAlign: 'center', marginTop: 2 }}>{ingredient.stock} {ingredient.unit}</div>
+      </div>
+    </button>
+  )
+}
