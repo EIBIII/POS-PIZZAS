@@ -8,7 +8,7 @@ export default function Extras() {
   const { ingredients, ingredientCategories, addTicketItem } = useApp()
   const [activeCat, setActiveCat] = useState<string>('todos')
 
-  const nonIngredientCats = ingredientCategories.filter(c => c.id !== 'cat1')
+  const nonIngredientCats = ingredientCategories.filter(c => c.showInExtras !== false)
   const filtered = ingredients.filter(i =>
     nonIngredientCats.some(c => c.id === i.categoryId) && i.stock > 0 &&
     (activeCat === 'todos' || i.categoryId === activeCat)

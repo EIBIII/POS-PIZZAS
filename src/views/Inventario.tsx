@@ -7,7 +7,7 @@ import { EXTRA_ICON_OPTIONS, getIngredientIcon } from '../productIcon'
 type StockFilter = 'todos' | 'bajo' | 'ok'
 
 const BLANK_ING: Omit<Ingredient, 'id'> = { name: '', unit: 'g', stock: 0, minStock: 0, cost: 0, provider: '', expiry: '', icon: '', categoryId: 'cat1' }
-const BLANK_CAT: Omit<IngredientCategory, 'id'> = { name: '', color: '#DC2626' }
+const BLANK_CAT: Omit<IngredientCategory, 'id'> = { name: '', color: '#DC2626', showInExtras: true }
 
 function daysUntil(dateStr: string): number {
   const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
@@ -129,7 +129,12 @@ export default function Inventario() {
                     <div style={{ fontSize: 14, fontWeight: 700, color: '#18181B' }}>{cat.name}</div>
                     <div style={{ fontSize: 12, color: '#A1A1AA', marginTop: 2 }}>{ingredients.filter(i => i.categoryId === cat.id).length} productos</div>
                   </div>
-                  <div style={{ display: 'flex', gap: 5 }}>
+                  <div style={{ display: 'flex', gap: 5, alignItems: 'center' }}>
+                    <button onClick={() => setIngredientCategories(ingredientCategories.map(c => c.id === cat.id ? { ...c, showInExtras: !c.showInExtras } : c))}
+                      title="Mostrar esta categoría en Extras"
+                      style={{ padding: '5px 10px', fontSize: 11, fontWeight: 700, borderRadius: 99, cursor: 'pointer', background: cat.showInExtras ? '#F0FDF4' : '#F4F4F5', color: cat.showInExtras ? '#16A34A' : '#A1A1AA', border: `1px solid ${cat.showInExtras ? '#86EFAC' : '#E4E4E7'}` }}>
+                      {cat.showInExtras ? 'En Extras ✓' : 'No en Extras'}
+                    </button>
                     <button onClick={() => { setEditCat(cat); setNewCat(false); setCatForm({ name: cat.name, color: cat.color }) }}
                       style={{ width: 32, height: 32, background: 'none', border: '1px solid #E4E4E7', borderRadius: 7, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                       <Icon name="pencil" size={14} color="#71717A" />

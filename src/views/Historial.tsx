@@ -196,10 +196,10 @@ export default function HistorialView() {
                   </td>
                   <td style={{ padding: '11px 14px' }} onClick={e => e.stopPropagation()}>
                     <div style={{ display: 'flex', gap: 4 }}>
-                      {isToday(o.createdAt) && o.status !== 'cancelado' && (
-                        <button onClick={() => loadOrderIntoTicket(o)}
-                          style={{ padding: '3px 8px', fontSize: 10.5, background: '#F7F7F8', color: '#3F3F46', border: '1px solid #E4E4E7', borderRadius: 5, cursor: 'pointer', fontWeight: 600 }}>
-                          Editar
+                      {isToday(o.createdAt) && o.status !== 'cancelado' && o.status !== 'entregado' && (
+                        <button onClick={() => loadOrderIntoTicket(o)} title="Editar pedido"
+                          style={{ width: 24, height: 24, display: 'flex', alignItems: 'center', justifyContent: 'center', background: '#F7F7F8', border: '1px solid #E4E4E7', borderRadius: 5, cursor: 'pointer' }}>
+                          <Icon name="pencil" size={12} color="#3F3F46" />
                         </button>
                       )}
                       {o.status !== 'cancelado' && o.status !== 'entregado' && (

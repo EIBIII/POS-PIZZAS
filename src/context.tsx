@@ -128,8 +128,14 @@ export function AppProvider({ children }: { children: ReactNode }) {
     })
   }
 
+  // Si al quitar un artículo con "X" el ticket queda vacío, también se
+  // suelta el pedido recordado (la leyenda "Cobrando pedido..." ya no aplica).
   function removeTicketItem(id: string) {
-    setTicketItems(prev => prev.filter(i => i.id !== id))
+    setTicketItems(prev => {
+      const next = prev.filter(i => i.id !== id)
+      if (next.length === 0) setRecalledOrderId(null)
+      return next
+    })
   }
 
   function updateItemQty(id: string, qty: number) {

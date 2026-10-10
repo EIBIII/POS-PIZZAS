@@ -18,6 +18,14 @@ export default function Dashboard() {
   const cardSales = todayOrders.filter(o => o.paymentMethod === 'tarjeta').reduce((s, o) => s + o.total, 0)
   const activeOrders = orders.filter(o => ['confirmado','preparando','cocinando'].includes(o.status)).length
   const lowStock = ingredients.filter(i => i.stock <= i.minStock)
+  function daysUntil(dateStr: string): number {
+    const target = new Date(dateStr); target.setHours(0, 0, 0, 0)
+    return Math.round((target.getTime() - today.getTime()) / 86400000)
+  }
+  const expiring = ingredients
+    .filter(i => i.expiry && daysUntil(i.expiry) <= 3)
+    .map(i => ({ ...i, daysLeft: daysUntil(i.expiry!) }))
+    .sort((a, b) => a.daysLeft - b.daysLeft)
 
   // Pizza count by name
   const pizzaCounts: Record<string, number> = {}
@@ -66,10 +74,17 @@ export default function Dashboard() {
         { label: 'En cocina', value: String(activeOrders) },
       ],
       todayHistory,
+      {
+        lowStock: lowStock.map(i => ({ name: i.name, stock: i.stock, unit: i.unit, minStock: i.minStock })),
+        expiring: expiring.map(i => ({ name: i.name, stock: i.stock, unit: i.unit, daysLeft: i.daysLeft })),
+      },
     )
     sendPdfByEmail(doc, filename, settings.reportEmail, `Dashboard del día — ${settings.name}`, [
       `Resumen del día de ${settings.name} (incluye historial de pedidos de hoy).`,
       `Ventas hoy: $${todayRevenue.toLocaleString()} · Pedidos: ${todayOrders.length} · En cocina: ${activeOrders}`,
+      ...(lowStock.length || expiring.length
+        ? [`Revisar para mañana: ${lowStock.length} insumo(s) con stock bajo, ${expiring.length} por caducar (detalle en el PDF).`]
+        : []),
     ])
     addAudit({ action: 'Envío de dashboard por correo', module: 'Dashboard', detail: `Historial del día → ${settings.reportEmail}`, user: 'Sistema' })
     setNotice(`PDF descargado. Se abrió tu correo hacia ${settings.reportEmail}.`)
@@ -151,7 +166,7 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 16 }}>
+      <div className="dash-kpi-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: 16 }}>
         {/* Top pizzas bar */}
         <Card title="Pizzas más vendidas">
           {topPizzas.length > 0 ? (
@@ -205,6 +220,29 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+        </Card>
+
+        {/* Expiry alerts */}
+        <Card title={`Caducidad ${expiring.length > 0 ? `(${expiring.length})` : ''}`}>
+          {expiring.length === 0 ? (
+            <div style={{ textAlign: 'center', padding: 16, color: '#16A34A' }}>
+              <Icon name="check" size={32} color="#86EFAC" />
+              <div style={{ fontSize: 13, marginTop: 8 }}>Nada por caducar</div>
+            </div>
+          ) : expiring.map(ing => {
+            const expired = ing.daysLeft < 0
+            return (
+              <div key={ing.id} style={{ padding: '8px 10px', marginBottom: 6, background: expired ? '#FEF2F2' : '#FFFBEB', border: `1px solid ${expired ? '#FECACA' : '#FDE68A'}`, borderRadius: 8 }}>
+                <div style={{ fontSize: 12.5, fontWeight: 600, color: '#18181B' }}>{ing.name}</div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                  <span style={{ fontSize: 11, color: expired ? '#DC2626' : '#D97706', fontWeight: 700 }}>
+                    {expired ? `Caducó hace ${Math.abs(ing.daysLeft)}d` : ing.daysLeft === 0 ? 'Caduca hoy' : `Caduca en ${ing.daysLeft}d`}
+                  </span>
+                  <span style={{ fontSize: 11, color: '#A1A1AA' }}>{ing.stock} {ing.unit}</span>
+                </div>
+              </div>
+            )
+          })}
         </Card>
       </div>
     </div>

@@ -40,10 +40,10 @@ export const ROLES: Role[] = [
 ]
 
 export const INGREDIENT_CATEGORIES: IngredientCategory[] = [
-  { id: 'cat1', name: 'Ingredientes', color: '#DC2626' },
-  { id: 'cat2', name: 'Materia Prima', color: '#D97706' },
-  { id: 'cat3', name: 'Bebidas', color: '#2563EB' },
-  { id: 'cat4', name: 'Empaques', color: '#16A34A' },
+  { id: 'cat1', name: 'Ingredientes', color: '#DC2626', showInExtras: false },
+  { id: 'cat2', name: 'Materia Prima', color: '#D97706', showInExtras: true },
+  { id: 'cat3', name: 'Bebidas', color: '#2563EB', showInExtras: true },
+  { id: 'cat4', name: 'Empaques', color: '#16A34A', showInExtras: true },
 ]
 
 export const USERS: User[] = [

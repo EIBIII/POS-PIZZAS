@@ -629,21 +629,6 @@ export default function PedidoView() {
               )
             })}
 
-            {parts.length > 1 && (
-              <div
-                style={{
-                  display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", borderRadius: 10,
-                  background: fractionsValid ? "#F0FDF4" : "#FEF2F2",
-                  border: `1px solid ${fractionsValid ? "#86EFAC" : "#FCA5A5"}`,
-                }}
-              >
-                <Icon name={fractionsValid ? "check" : "alertTriangle"} size={15} color={fractionsValid ? "#16A34A" : "#DC2626"} />
-                <span style={{ fontSize: 13, fontWeight: 700, color: fractionsValid ? "#16A34A" : "#DC2626" }}>
-                  Total: {totalLabel} {fractionsValid ? "✓" : "✗"}
-                </span>
-              </div>
-            )}
-
             <Card title="Observaciones">
               <textarea
                 value={notes}

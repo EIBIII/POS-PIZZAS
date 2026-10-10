@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useApp } from '../context'
 import Icon from '../components/Icon'
+import { buildCorteCajaPDF, sendPdfByEmail } from '../reportUtils'
 
 const MANAGER_ROLES = ['super_admin', 'admin', 'gerente']
 
@@ -8,7 +9,9 @@ export default function CorteCaja() {
   const { orders, currentUser, settings, users, addAudit, addCashRegister } = useApp()
   const [actualAmount, setActualAmount] = useState<number | ''>('')
   const [cut, setCut] = useState(false)
-  const [cutData, setCutData] = useState<{ expected: number; actual: number; diff: number; initialFloat: number } | null>(null)
+  const [cutData, setCutData] = useState<{ expected: number; actual: number; diff: number; initialFloat: number; shortageReason?: string } | null>(null)
+  const [pendingCut, setPendingCut] = useState<{ expected: number; actual: number; diff: number } | null>(null)
+  const [shortageReason, setShortageReason] = useState('')
   const [initialFloat, setInitialFloat] = useState<number>(settings.initialFloat)
   const [floatUnlocked, setFloatUnlocked] = useState(false)
   const [showPIN, setShowPIN] = useState(false)
@@ -47,7 +50,14 @@ export default function CorteCaja() {
   function doCut() {
     const actual = Number(actualAmount) || 0
     const expected = cashTotal + initialFloat
-    setCutData({ expected, actual, diff: actual - expected, initialFloat })
+    const diff = actual - expected
+    // Si falta dinero, primero se pide redactar el motivo antes de cerrar el corte.
+    if (diff < 0) { setPendingCut({ expected, actual, diff }); setShortageReason(''); return }
+    finalizeCut(expected, actual, diff)
+  }
+
+  function finalizeCut(expected: number, actual: number, diff: number, reason?: string) {
+    setCutData({ expected, actual, diff, initialFloat, shortageReason: reason })
     setCut(true)
     addCashRegister({
       id: `cr${Date.now()}`,
@@ -57,13 +67,21 @@ export default function CorteCaja() {
       initialAmount: initialFloat,
       expectedAmount: expected,
       actualAmount: actual,
-      difference: actual - expected,
+      difference: diff,
       cashSales: cashTotal,
       cardSales: cardTotal,
       withdrawals: 0,
       status: 'closed',
+      ...(reason ? { shortageReason: reason } : {}),
     })
-    addAudit({ action: 'Corte de caja realizado', module: 'Corte de Caja', detail: `Esperado: $${expected} · Real: $${actual} · Diferencia: $${actual - expected}`, user: currentUser?.name || '' })
+    addAudit({ action: 'Corte de caja realizado', module: 'Corte de Caja', detail: `Esperado: $${expected} · Real: $${actual} · Diferencia: $${diff}${reason ? ` · Motivo faltante: ${reason}` : ''}`, user: currentUser?.name || '' })
+  }
+
+  function confirmShortage() {
+    if (!pendingCut || !shortageReason.trim()) return
+    finalizeCut(pendingCut.expected, pendingCut.actual, pendingCut.diff, shortageReason.trim())
+    setPendingCut(null)
+    setShortageReason('')
   }
 
   function fmtMoney(n: number) {
@@ -101,7 +119,26 @@ export default function CorteCaja() {
               <span style={{ fontSize: 14, fontWeight: 700, color: diffColor }}>{diffLabel}</span>
               <span style={{ fontFamily: 'JetBrains Mono, monospace', fontSize: 16, fontWeight: 700, color: diffColor }}>{fmtMoney(Math.abs(cutData.diff))}</span>
             </div>
+            {cutData.shortageReason && (
+              <div style={{ padding: '10px 14px', background: '#FEF2F2', border: '1px solid #FECACA', borderRadius: 9 }}>
+                <div style={{ fontSize: 10.5, fontWeight: 700, color: '#DC2626', marginBottom: 3 }}>MOTIVO DEL FALTANTE</div>
+                <div style={{ fontSize: 12.5, color: '#3F3F46' }}>{cutData.shortageReason}</div>
+              </div>
+            )}
           </div>
+
+          <button onClick={() => {
+            const { doc, filename } = buildCorteCajaPDF(settings, {
+              initialFloat: cutData.initialFloat, cashSales: cashTotal, cardSales: cardTotal,
+              expected: cutData.expected, actual: cutData.actual, diff: cutData.diff,
+              shortageReason: cutData.shortageReason, closedBy: currentUser?.name || '',
+            })
+            if (settings.reportEmail) sendPdfByEmail(doc, filename, settings.reportEmail, `Corte de caja — ${settings.name}`, [`Corte de caja de ${settings.name}.`])
+            else doc.save(filename)
+          }}
+            style={{ width: '100%', padding: 11, background: '#F7F7F8', border: '1px solid #E4E4E7', borderRadius: 10, color: '#3F3F46', fontSize: 13.5, fontWeight: 700, cursor: 'pointer', marginBottom: 10, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 7 }}>
+            <Icon name="mail" size={14} color="#3F3F46" /> Descargar / enviar PDF
+          </button>
 
           <button onClick={() => { setCut(false); setCutData(null); setActualAmount('') }}
             style={{ width: '100%', padding: 12, background: '#DC2626', border: 'none', borderRadius: 10, color: '#fff', fontFamily: 'Cooper Black, serif', fontSize: 16, cursor: 'pointer', boxShadow: '0 4px 16px rgba(220,38,38,0.25)' }}>
@@ -265,6 +302,31 @@ export default function CorteCaja() {
               </button>
             </div>
             <div style={{ fontSize: 11, color: '#A1A1AA' }}>PIN de gerente en turno (o admin)</div>
+          </div>
+        </div>
+      )}
+
+      {/* Motivo del faltante — obligatorio antes de cerrar el corte si falta dinero */}
+      {pendingCut && (
+        <div className="overlay anim-fade">
+          <div className="anim-scale" style={{ background: '#FFFFFF', borderRadius: 16, padding: 24, width: 380, boxShadow: '0 24px 64px rgba(0,0,0,0.15)' }}>
+            <div style={{ fontFamily: 'Cooper Black, serif', fontSize: 18, color: '#18181B', marginBottom: 4 }}>Falta dinero en caja</div>
+            <div style={{ fontSize: 12.5, color: '#71717A', marginBottom: 16 }}>
+              Faltante: <span style={{ fontFamily: 'JetBrains Mono, monospace', color: '#DC2626', fontWeight: 700 }}>{fmtMoney(Math.abs(pendingCut.diff))}</span> — redacta el motivo, quedará en el PDF del corte.
+            </div>
+            <textarea value={shortageReason} onChange={e => setShortageReason(e.target.value)}
+              placeholder="Motivo del faltante..."
+              rows={3}
+              style={{ width: '100%', padding: '10px 12px', background: '#F7F7F8', color: '#18181B', border: '1px solid #E4E4E7', borderRadius: 9, resize: 'none', fontSize: 13, boxSizing: 'border-box' }}
+            />
+            <div style={{ display: 'flex', gap: 8, marginTop: 14 }}>
+              <button onClick={() => { setPendingCut(null); setShortageReason('') }}
+                style={{ flex: 1, padding: '10px', background: '#F7F7F8', border: '1px solid #E4E4E7', borderRadius: 9, fontSize: 13, cursor: 'pointer', color: '#3F3F46' }}>Volver</button>
+              <button onClick={confirmShortage} disabled={!shortageReason.trim()}
+                style={{ flex: 1, padding: '10px', background: '#DC2626', border: 'none', borderRadius: 9, color: '#fff', fontSize: 13, fontWeight: 700, cursor: 'pointer', opacity: shortageReason.trim() ? 1 : 0.5 }}>
+                Confirmar corte
+              </button>
+            </div>
           </div>
         </div>
       )}

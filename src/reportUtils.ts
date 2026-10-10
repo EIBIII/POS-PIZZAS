@@ -93,6 +93,7 @@ export function buildDashboardPDF(
   settings: BusinessSettings,
   kpis: KPI[],
   todayOrders: { orderNumber: string; customer?: string; paymentMethod: string; total: number; status: string; createdAt: Date }[],
+  stockAlerts?: { lowStock: { name: string; stock: number; unit: string; minStock: number }[]; expiring: { name: string; stock: number; unit: string; daysLeft: number }[] },
 ) {
   const doc = new jsPDF()
   buildHeader(doc, settings, 'Resumen del día (Dashboard)', 'Hoy')
@@ -116,7 +117,58 @@ export function buildDashboardPDF(
     styles: { fontSize: 8.5 },
   })
 
+  if (stockAlerts && (stockAlerts.lowStock.length || stockAlerts.expiring.length)) {
+    const afterOrders = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 12
+    doc.setFontSize(10)
+    doc.setTextColor(217, 119, 6)
+    doc.text('Insumos a revisar para mañana (stock bajo / por caducar)', 14, afterOrders - 4)
+    autoTable(doc, {
+      startY: afterOrders,
+      head: [['Insumo', 'Alerta', 'Stock']],
+      body: [
+        ...stockAlerts.lowStock.map(i => [i.name, `Stock bajo (mín. ${i.minStock})`, `${i.stock} ${i.unit}`]),
+        ...stockAlerts.expiring.map(i => [i.name, i.daysLeft < 0 ? `Caducó hace ${Math.abs(i.daysLeft)}d` : i.daysLeft === 0 ? 'Caduca hoy' : `Caduca en ${i.daysLeft}d`, `${i.stock} ${i.unit}`]),
+      ],
+      theme: 'striped',
+      headStyles: { fillColor: [217, 119, 6] },
+      styles: { fontSize: 8.5 },
+    })
+  }
+
   return { doc, filename: `dashboard-historial-${todayStamp()}.pdf` }
+}
+
+export function buildCorteCajaPDF(
+  settings: BusinessSettings,
+  data: { initialFloat: number; cashSales: number; cardSales: number; expected: number; actual: number; diff: number; shortageReason?: string; closedBy: string },
+) {
+  const doc = new jsPDF()
+  buildHeader(doc, settings, 'Corte de Caja', todayStamp())
+  autoTable(doc, {
+    startY: 36,
+    head: [['Concepto', 'Monto']],
+    body: [
+      ['Fondo inicial', fmtMoney(data.initialFloat)],
+      ['Ventas efectivo', fmtMoney(data.cashSales)],
+      ['Ventas tarjeta', fmtMoney(data.cardSales)],
+      ['Total esperado', fmtMoney(data.expected)],
+      ['Total contado', fmtMoney(data.actual)],
+      [data.diff === 0 ? 'Cuadrado' : data.diff > 0 ? 'Sobrante' : 'Faltante', fmtMoney(Math.abs(data.diff))],
+      ['Cerrado por', data.closedBy],
+    ],
+    theme: 'striped',
+    headStyles: { fillColor: [220, 38, 38] },
+    styles: { fontSize: 10 },
+  })
+  if (data.shortageReason) {
+    const afterTable = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 10
+    doc.setFontSize(10)
+    doc.setTextColor(220, 38, 38)
+    doc.text('Motivo del faltante:', 14, afterTable)
+    doc.setTextColor(63, 63, 70)
+    doc.text(doc.splitTextToSize(data.shortageReason, 180), 14, afterTable + 6)
+  }
+  return { doc, filename: `corte-caja-${todayStamp()}.pdf` }
 }
 
 // Descarga el PDF y abre el cliente de correo del usuario con el destinatario, asunto

@@ -381,7 +381,7 @@ export default function Ticket() {
 
       {/* Cobrar */}
       <div style={{ padding: '12px 14px', background: '#FFFFFF' }}>
-        <button onClick={() => setShowConfirm(true)} disabled={!canCharge}
+        <button onClick={() => (payStatus === 'pagado' ? setShowConfirm(true) : handleCobrar())} disabled={!canCharge}
           style={{
             width: '100%', padding: '13px 8px', fontFamily: 'Cooper Black, serif', fontSize: 15, letterSpacing: '-0.01em',
             background: canCharge ? '#DC2626' : '#F4F4F5',

@@ -89,6 +89,7 @@ export interface IngredientCategory {
   id: string
   name: string
   color: string
+  showInExtras?: boolean
 }
 
 export interface Ingredient {
@@ -209,6 +210,7 @@ export interface CashRegister {
   cardSales: number
   withdrawals: number
   status: 'open' | 'closed'
+  shortageReason?: string
 }
 
 export interface InventoryMovement {
