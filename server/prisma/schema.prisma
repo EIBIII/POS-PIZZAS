@@ -1,0 +1,234 @@
+// Esquema de persistencia del POS. Se mantiene cercano a los tipos del
+// frontend (src/types.ts) para que migrar la UI de memoria -> API sea un
+// cambio de "dónde se guarda", no de "cómo se modela". Campos muy anidados
+// o variables por naturaleza (permisos por rol, extras de una pizza, precios
+// por tamaño) se guardan como Json en vez de normalizarse a más tablas: es
+// la forma pragmática de arrancar sin bloquear el resto del negocio en un
+// rediseño de esquema.
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model Role {
+  id          String @id
+  label       String
+  color       String
+  // Record<string, boolean> por módulo (ventas, pedidos, productos, ...)
+  permissions Json
+  users       User[]
+
+  @@map("roles")
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  username  String   @unique
+  // Hash con bcrypt, nunca texto plano.
+  password  String
+  // Hash con bcrypt del PIN de 4 dígitos (login rápido en caja).
+  pin       String
+  roleId    String
+  role      Role     @relation(fields: [roleId], references: [id])
+  phone     String?
+  email     String?
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  orders        Order[]
+  cashRegisters CashRegister[]
+
+  @@map("users")
+}
+
+model IngredientCategory {
+  id           String       @id @default(cuid())
+  name         String
+  color        String
+  showInExtras Boolean      @default(true)
+  ingredients  Ingredient[]
+
+  @@map("ingredient_categories")
+}
+
+model Ingredient {
+  id          String    @id @default(cuid())
+  name        String
+  unit        String
+  stock       Float     @default(0)
+  minStock    Float     @default(0)
+  cost        Float     @default(0)
+  customPrice Float?
+  provider    String?
+  expiry      DateTime?
+  icon        String?
+  // "Especial": siempre se cobra como extra aunque esté entre los
+  // primeros 2 ingredientes de una pizza sin sabor de menú.
+  premium     Boolean   @default(false)
+  // { mediana, grande, jumbo } gramos al agregarse como ingrediente extra.
+  extraGrams  Json?
+  // { mediana, grande, jumbo } gramos cuando es ingrediente base global
+  // (Masa, Puré, Queso) que toda pizza lleva sin duplicarse por producto.
+  baseGrams   Json?
+
+  categoryId String
+  category   IngredientCategory  @relation(fields: [categoryId], references: [id])
+  inProducts ProductIngredient[]
+
+  @@map("ingredients")
+}
+
+model Product {
+  id        String   @id @default(cuid())
+  name      String
+  // { mediana, grande, jumbo }
+  prices    Json
+  // { mediana, grande, jumbo }
+  slices    Json
+  active    Boolean  @default(true)
+  specialty Boolean  @default(false)
+
+  baseIngredients ProductIngredient[]
+
+  @@map("products")
+}
+
+// Receta base de un producto: NO incluye Masa/Puré/Queso (esos son
+// globales vía Ingredient.baseGrams), solo los ingredientes distintivos.
+model ProductIngredient {
+  id           String     @id @default(cuid())
+  productId    String
+  product      Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
+  ingredientId String
+  ingredient   Ingredient @relation(fields: [ingredientId], references: [id])
+  grams        Float
+
+  @@unique([productId, ingredientId])
+  @@map("product_ingredients")
+}
+
+model Extra {
+  id     String  @id @default(cuid())
+  name   String
+  price  Float
+  icon   String?
+  active Boolean @default(true)
+  stock  Int     @default(0)
+
+  @@map("extras")
+}
+
+model Promotion {
+  id     String  @id @default(cuid())
+  name   String
+  // 'percent' | 'fixed'
+  type   String
+  value  Float
+  active Boolean @default(true)
+
+  @@map("promotions")
+}
+
+model Order {
+  id            String    @id @default(cuid())
+  orderNumber   String    @unique
+  customer      String?
+  // 'local' | 'llevar' | 'delivery'
+  consumption   String
+  address       String?
+  phone         String?
+  deliveryCost  Float?
+  // TicketItem[] completo (incluye pizzaParts estructurados por parte).
+  items         Json
+  subtotal      Float
+  discount      Float     @default(0)
+  total         Float
+  paymentMethod String
+  paymentStatus String
+  status        String
+  notes         String?
+  size          String?
+  slices        Int?
+  cancelReason  String?
+  cancelledBy   String?
+  refundReason  String?
+  refundedBy    String?
+  scheduledFor  DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  createdById String
+  createdBy   User   @relation(fields: [createdById], references: [id])
+
+  @@map("orders")
+}
+
+model CashRegister {
+  id             String    @id @default(cuid())
+  openedAt       DateTime
+  closedAt       DateTime?
+  initialAmount  Float
+  expectedAmount Float
+  actualAmount   Float?
+  difference     Float?
+  cashSales      Float
+  cardSales      Float
+  withdrawals    Float     @default(0)
+  // 'open' | 'closed'
+  status         String
+  shortageReason String?
+
+  openedById String
+  openedBy   User   @relation(fields: [openedById], references: [id])
+
+  @@map("cash_registers")
+}
+
+model AuditEntry {
+  id        String   @id @default(cuid())
+  action    String
+  module    String
+  detail    String
+  // Nombre del usuario (histórico tal como se mostraba en el frontend).
+  user      String
+  timestamp DateTime @default(now())
+
+  @@map("audit_log")
+}
+
+// Fila única (id = 1) con la configuración del negocio.
+model Settings {
+  id                       Int      @id @default(1)
+  name                     String
+  address                  String
+  phones                   Json
+  rfc                      String
+  tax                      Float
+  logoUrl                  String?
+  reportEmail              String?
+  currency                 String
+  timezone                 String
+  language                 String
+  autoLogout               Int
+  initialFloat             Float
+  slicePrice               Float
+  // { mediana, grande, jumbo }
+  simplePizzaPrice         Json
+  ticketHeader             String
+  ticketFooter             String
+  ticketShowLogo           Boolean
+  printerWidth             Int
+  deliveryBaseRate         Float
+  deliveryFreeThreshold    Float
+  deliveryRadiusKm         Float
+  deliveryEstimatedMinutes Int
+
+  @@map("settings")
+}
